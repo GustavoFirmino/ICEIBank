@@ -1,0 +1,15 @@
+# Java / Maven
+target/
+*.class
+
+# Dados gerados em tempo de execucao (logs jsonl das agencias)
+agencia/data/*.jsonl
+
+# Node / frontend
+node_modules/
+dist/
+.env
+
+# Sistema
+Thumbs.db
+desktop.ini

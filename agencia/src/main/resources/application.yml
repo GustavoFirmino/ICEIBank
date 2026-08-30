@@ -1,0 +1,33 @@
+# Aluno: Gustavo Pessoa Firmino Duarte
+# Disciplina: Laboratorio de Desenvolvimento de Aplicacoes Moveis e Distribuidas
+# Projeto: ICEIBank - Sprint 1
+# OFFSET pessoal (2 ultimos digitos da matricula): 47
+#
+# Configuracao COMPARTILHADA entre as 3 agencias. So server.port e agencia.id
+# ficam nos arquivos application-agenciaN.yml - tudo o mais (segredo JWT,
+# usuarios de demonstracao, chave interna entre agencias) precisa ser IDENTICO
+# nas 3 instancias, senao um token emitido pela agencia 0 nao valida na agencia 1.
+
+agencia:
+  total-agencias: 3
+  porta-base: 4047 # 4000 + OFFSET (47)
+  internal-key: "iceibank-chave-interna-agencias-47"
+
+jwt:
+  secret: "iceibank-segredo-jwt-sprint1-troque-em-producao-47-abcdef0123456789"
+  expiration-seconds: 300
+  debug-endpoints-enabled: true
+
+app:
+  usuarios:
+    - username: gustavo
+      password: senha123
+    - username: aluno
+      password: senha123
+
+cors:
+  allowed-origin: "http://localhost:5173"
+
+server:
+  error:
+    include-message: always
