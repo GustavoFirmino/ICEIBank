@@ -6,5 +6,18 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.transferencia.dto;
 
-public record TransferenciaRequest(long idOrigem, long idDestino, long valor) {
+/**
+ * idOperacao e OPCIONAL: um identificador unico (ex.: UUID) gerado pelo
+ * CLIENTE para esta operacao especifica. Quando informado, reenviar a
+ * mesma requisicao (mesmo idOperacao) nao aplica a transferencia de novo -
+ * ver funcionalidade adicional "idempotencia" em RESPOSTAS.md. Se omitido,
+ * a transferencia funciona exatamente como no escopo base do roteiro
+ * (sem protecao contra reenvio).
+ */
+public record TransferenciaRequest(long idOrigem, long idDestino, long valor, String idOperacao) {
+
+    /** Construtor de conveniencia sem idempotencia (idOperacao = null). */
+    public TransferenciaRequest(long idOrigem, long idDestino, long valor) {
+        this(idOrigem, idDestino, valor, null);
+    }
 }

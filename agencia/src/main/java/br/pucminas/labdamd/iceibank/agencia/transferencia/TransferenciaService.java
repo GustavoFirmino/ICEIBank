@@ -34,18 +34,41 @@ public class TransferenciaService {
     private final LamportClockService relogio;
     private final EventLogService eventLog;
     private final RemoteBranchClient remoteBranchClient;
+    private final IdempotencyStore idempotencyStore;
 
     public TransferenciaService(AgenciaProperties agenciaProperties, ContaRepository contaRepository,
                                  LamportClockService relogio, EventLogService eventLog,
-                                 RemoteBranchClient remoteBranchClient) {
+                                 RemoteBranchClient remoteBranchClient, IdempotencyStore idempotencyStore) {
         this.agenciaProperties = agenciaProperties;
         this.contaRepository = contaRepository;
         this.relogio = relogio;
         this.eventLog = eventLog;
         this.remoteBranchClient = remoteBranchClient;
+        this.idempotencyStore = idempotencyStore;
     }
 
     public TransferenciaResponse transferir(TransferenciaRequest request) {
+        String idOperacao = request.idOperacao();
+
+        // Funcionalidade adicional: idempotencia. Se o cliente reenviar a
+        // MESMA operacao (mesmo idOperacao), nao aplicamos de novo - so
+        // devolvemos a resposta da primeira vez, marcada como "repetida".
+        if (idOperacao != null) {
+            TransferenciaResponse jaProcessada = idempotencyStore.buscar(idOperacao);
+            if (jaProcessada != null) {
+                return new TransferenciaResponse(jaProcessada.mensagem(), true);
+            }
+        }
+
+        TransferenciaResponse resposta = executarTransferencia(request);
+
+        if (idOperacao != null) {
+            idempotencyStore.registrar(idOperacao, resposta);
+        }
+        return resposta;
+    }
+
+    private TransferenciaResponse executarTransferencia(TransferenciaRequest request) {
         long idOrigem = request.idOrigem();
         long idDestino = request.idDestino();
         long valor = request.valor();
@@ -89,7 +112,7 @@ public class TransferenciaService {
         eventLog.registrar(TipoEvento.TRANSFERENCIA_CREDITO, tsCredito, idDestino,
                 Map.of("idOrigem", idOrigem, "valor", valor));
 
-        return new TransferenciaResponse("Transferencia concluida (mesma agencia).");
+        return TransferenciaResponse.nova("Transferencia concluida (mesma agencia).");
     }
 
     private TransferenciaResponse transferirEntreAgencias(long idOrigem, long idDestino, long valor,
@@ -100,7 +123,7 @@ public class TransferenciaService {
 
         try {
             remoteBranchClient.creditarRemoto(agenciaDestino, idDestino, valor, tsEnvio, agenciaProperties.id());
-            return new TransferenciaResponse("Transferencia concluida (entre agencias).");
+            return TransferenciaResponse.nova("Transferencia concluida (entre agencias).");
         } catch (ComunicacaoAgenciaException erro) {
             // Captura especificamente falha de COMUNICACAO (rede, timeout, resposta de
             // erro) - nao RuntimeException generico, para nao mascarar um bug real

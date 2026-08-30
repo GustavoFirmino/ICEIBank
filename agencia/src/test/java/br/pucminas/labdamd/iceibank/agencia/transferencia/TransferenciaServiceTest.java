@@ -74,7 +74,7 @@ class TransferenciaServiceTest {
         contaRepository = new ContaRepository();
         remoteBranchClientFalso = new RemoteBranchClientFalso();
         transferenciaService = new TransferenciaService(
-                agencia0, contaRepository, new LamportClockService(), eventLog, remoteBranchClientFalso);
+                agencia0, contaRepository, new LamportClockService(), eventLog, remoteBranchClientFalso, new IdempotencyStore());
     }
 
     @AfterEach
@@ -138,6 +138,39 @@ class TransferenciaServiceTest {
         assertEquals(1L, remoteBranchClientFalso.ultimaContaDestino);
         assertEquals(20L, remoteBranchClientFalso.ultimoValor);
         assertEquals(0, remoteBranchClientFalso.ultimaOrigemAgencia);
+    }
+
+    @Test
+    void transferenciaComMesmoIdOperacaoNaoEAplicadaDuasVezes() {
+        // Funcionalidade adicional: idempotencia.
+        criarConta(0, 100);
+        criarConta(3, 10);
+        String idOperacao = "op-123";
+
+        TransferenciaResponse primeira = transferenciaService.transferir(
+                new TransferenciaRequest(0, 3, 30, idOperacao));
+        TransferenciaResponse segunda = transferenciaService.transferir(
+                new TransferenciaRequest(0, 3, 30, idOperacao));
+
+        assertFalse(primeira.repetida());
+        assertTrue(segunda.repetida());
+        assertEquals(primeira.mensagem(), segunda.mensagem());
+        // o saldo so foi debitado/creditado UMA vez, nao duas
+        assertEquals(70, contaRepository.buscar(0).orElseThrow().saldo());
+        assertEquals(40, contaRepository.buscar(3).orElseThrow().saldo());
+    }
+
+    @Test
+    void transferenciasComIdOperacaoDiferenteOuAusenteSaoAplicadasNormalmente() {
+        criarConta(0, 100);
+        criarConta(3, 10);
+
+        // duas transferencias SEM idOperacao (uso normal, sem idempotencia) - ambas aplicam
+        transferenciaService.transferir(new TransferenciaRequest(0, 3, 10));
+        transferenciaService.transferir(new TransferenciaRequest(0, 3, 10));
+
+        assertEquals(80, contaRepository.buscar(0).orElseThrow().saldo());
+        assertEquals(30, contaRepository.buscar(3).orElseThrow().saldo());
     }
 
     @Test
