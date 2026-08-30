@@ -93,7 +93,28 @@ Seria uma falha de segurança grave e total: qualquer pessoa de posse da chave c
 
 ## Parte G — Frontend
 
-_A preencher após a implementação da Parte G._
+Implementado em React + Vite (`frontend/`). Fluxo completo testado de ponta a ponta pela interface: login, consulta de saldo, depósito, saque, transferência local, transferência entre agências (confirmada via API: saldo debitado em uma agência e creditado na outra, através do próprio frontend) e um caso de erro (saque com saldo insuficiente, exibido em um banner vermelho na tela).
+
+**1. Como o frontend "lembra" de reenviar o token depois do login?**
+
+O token vem na resposta de `POST /auth/login` e é guardado de duas formas ao mesmo tempo: no estado do `AuthContext` (React) e no `localStorage` do navegador (`iceibank.token`). Toda chamada à API passa por um único ponto central — `api/httpClient.js` (`apiFetch`) — que recebe o token como parâmetro e, se ele existir, anexa o header `Authorization: Bearer <token>` automaticamente antes de disparar o `fetch`. Como cada componente (saldo, depósito, saque, transferência, histórico) usa o hook `useAuth()` para pegar o token atual e repassá-lo para sua chamada de API, ninguém precisa "lembrar" manualmente — é estrutural, não uma decisão tomada em cada tela. O `localStorage` também garante que, se a página for recarregada, a pessoa continua logada (o `AuthContext` lê o token salvo na inicialização).
+
+**2. Se o token expirar no meio de uma operação, o que acontece? A interface avisa, ou só mostra um erro genérico?**
+
+A interface avisa explicitamente. Dois mecanismos cobrem isso:
+- **Reativo:** se uma chamada à API retornar 401 (token ausente/expirado/inválido), `useApiError` intercepta esse status especificamente, desloga automaticamente (`logout()`) e devolve a mensagem "Sua sessão expirou ou o token é inválido. Faça login novamente." — exibida no `ErrorBanner` da tela onde a ação foi tentada, não um erro genérico de console.
+- **Proativo:** ao abrir o app (ou recarregar a página), o `AuthContext` decodifica o campo `exp` do JWT salvo (`utils/jwt.js`, sem validar assinatura — isso é sempre trabalho do backend) e, se ele já estiver expirado, desloga imediatamente, evitando mandar uma requisição que a API certamente rejeitaria.
+
+Testado na prática durante o desenvolvimento: o token (5 minutos de validade) expirou entre duas sessões de teste e o app deslogou sozinho ao ser reaberto, exigindo login de novo — confirmando que o mecanismo reativo funciona de verdade, não só em teoria.
+
+**3. Onde ficam o Model, a View e o Controller no frontend? Estão separados, ou o código ficou mais misturado do que o padrão sugere?**
+
+Ficaram razoavelmente separados, com uma ressalva:
+- **Model** — pasta `api/` (`httpClient.js`, `authApi.js`, `contasApi.js`, `transferenciasApi.js`, `designSystemApi.js`): é a única camada que sabe conversar com a API REST (monta URLs, serializa JSON, normaliza erros em `AppError`). Nenhum componente de tela faz `fetch` diretamente.
+- **View** — pasta `components/` (`LoginForm`, `ContaBalance`, `DepositoSaqueForm`, `TransferenciaForm`, `HistoricoList`, `ErrorBanner`, `BranchSelector`) e `pages/` (`LoginPage`, `DashboardPage`): só renderizam UI e capturam eventos do usuário; não sabem nada sobre `fetch`, token ou como a API está estruturada.
+- **Controller** — `context/` (`AuthContext`, `BranchContext`) + `hooks/` (`useAuth`, `useBranch`, `useApiError`): orquestram estado (token, agência selecionada) e a lógica de "o que fazer quando a chamada falha", conectando a View ao Model sem que a View precise conhecer detalhes de nenhum dos dois.
+
+A ressalva: em componentes como `TransferenciaForm.jsx` ou `DepositoSaqueForm.jsx`, a View **também** contém uma pequena fatia de lógica de orquestração (chamar a função da API dentro de um `try/catch`, decidir qual `useState` atualizar em cada caso) — no React, com hooks, é comum essa borda entre View e Controller ficar menos rígida do que num MVC clássico (onde um Controller separado receberia o evento primeiro). Não achei isso um problema grave para o tamanho deste projeto, mas é honesto reconhecer que a separação não é 100% limpa — um projeto maior provavelmente extrairia esses formulários para hooks próprios (ex.: `useTransferencia()`) para isolar essa lógica de vez.
 
 ## Funcionalidades adicionais
 
