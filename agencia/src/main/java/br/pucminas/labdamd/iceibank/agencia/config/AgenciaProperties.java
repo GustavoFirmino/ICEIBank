@@ -6,6 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.config;
 
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ParticaoInvalidaException;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -29,6 +30,13 @@ public record AgenciaProperties(int id, int totalAgencias, int portaBase, String
 
     public boolean pertenceAEstaAgencia(long idConta) {
         return agenciaResponsavel(idConta) == id;
+    }
+
+    /** Lanca ParticaoInvalidaException se a conta nao pertencer a esta agencia. */
+    public void validarParticaoOuLancar(long idConta) {
+        if (!pertenceAEstaAgencia(idConta)) {
+            throw new ParticaoInvalidaException(idConta, agenciaResponsavel(idConta));
+        }
     }
 
     /**
