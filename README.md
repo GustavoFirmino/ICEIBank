@@ -78,7 +78,7 @@ mvn -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.
 
 ## Endpoints da API
 
-Todas as rotas abaixo (exceto `/auth/login` e `/contas/{id}/creditar-remoto`) exigem o header `Authorization: Bearer <token>` (ver Parte F).
+Todas as rotas abaixo (exceto `/auth/login`, `/contas/{id}/creditar-remoto` e `/design-system`) exigem o header `Authorization: Bearer <token>` (ver Parte F).
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -90,6 +90,19 @@ Todas as rotas abaixo (exceto `/auth/login` e `/contas/{id}/creditar-remoto`) ex
 | GET | `/contas/{id}/historico` | **Extra:** histórico de eventos da conta |
 | POST | `/transferencias` | Transfere (`{"idOrigem","idDestino","valor","idOperacao"}` — `idOperacao` é opcional; ver **Extra: idempotência** abaixo) |
 | POST | `/contas/{id}/creditar-remoto` | Interna, agência-a-agência (`X-Internal-Key`, não JWT) |
+| GET | `/design-system` | Rota pública de referência: paleta de cores, tipografia e princípios de UX pesquisados para o frontend (Parte G) — ver seção abaixo |
+
+### Paleta e princípios de design (`GET /design-system`)
+
+Antes de implementar o frontend, pesquisei boas práticas de UI/UX para apps bancários/fintech (psicologia das cores, contraste de acessibilidade WCAG, práticas de UX de bancos digitais) e expus o resultado como um endpoint da própria API — assim a paleta não fica "inventada", vem de uma pesquisa real e citável, consumível programaticamente pelo frontend (inclusive na tela de login, antes de qualquer autenticação).
+
+**Resumo da pesquisa:**
+- **Cores:** azul-marinho (`#0A2540`, inspirado na Stripe) para identidade/confiança, azul vibrante (`#2563EB`) para ações, verde (`#16A34A`) para sucesso, laranja (`#F97316`) para avisos (no lugar do vermelho, evita gerar pânico), vermelho (`#DC2626`) reservado só para erros reais.
+- **Proporção:** regra 80/15/5 — 80% neutros, 15% cor primária, 5% cores de destaque.
+- **Tipografia:** fonte sans-serif do sistema (Inter + fallback nativo), 16px base.
+- **Acessibilidade:** contraste mínimo WCAG AA — 4.5:1 para texto, 3:1 para bordas de componentes.
+
+Fontes completas (com links) disponíveis na resposta do próprio endpoint, campo `fontesDaPesquisa`.
 
 **Idempotência:** se `idOperacao` for informado em `POST /transferencias` e a mesma requisição for reenviada com o mesmo valor, a transferência não é aplicada de novo — a resposta volta com `"repetida": true` e o saldo não muda uma segunda vez.
 

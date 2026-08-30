@@ -36,6 +36,8 @@ public class SecurityConfig {
                         // /contas/*/creditar-remoto e "publica" para o Spring Security (sem JWT),
                         // mas continua protegida - pelo InternalKeyAuthFilter abaixo, nao por JWT.
                         .requestMatchers(SecurityPaths.CREDITAR_REMOTO).permitAll()
+                        // /design-system e so referencia de design (nao e dado de conta) - publica de proposito.
+                        .requestMatchers(SecurityPaths.DESIGN_SYSTEM).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthFilter(jwtService, objectMapper), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new InternalKeyAuthFilter(agenciaProperties, objectMapper), UsernamePasswordAuthenticationFilter.class);
