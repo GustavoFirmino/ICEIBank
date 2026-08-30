@@ -46,7 +46,26 @@ Em termos de consistência bancária, isso é uma violação da propriedade de *
 
 ## Parte E — Linha do tempo unificada
 
-_A preencher após a implementação da Parte E._
+Ao rodar `MesclarLogs` depois de criar uma conta em cada uma das 3 agências (sem que elas nunca tivessem se comunicado antes) e fazer uma transferência entre agências, a saída real foi:
+
+```
+=== Linha do tempo unificada (ordenada por relogio de Lamport) ===
+[Lamport 1] (2026-08-30T20:51:14.214938700Z) agencia-0 - CRIACAO_CONTA {titular=Ana, saldoInicial=100}
+[Lamport 1] (2026-08-30T20:51:14.448899900Z) agencia-2 - CRIACAO_CONTA {titular=Duda, saldoInicial=100}
+[Lamport 1] (2026-08-30T20:51:14.687526500Z) agencia-1 - CRIACAO_CONTA {saldoInicial=50, titular=Carla}
+[Lamport 2] (2026-08-30T20:51:14.782119500Z) agencia-0 - TRANSFERENCIA_DEBITO {valor=20, idDestino=1}
+[Lamport 4] (2026-08-30T20:51:14.856469400Z) agencia-1 - TRANSFERENCIA_CREDITO_REMOTO {valor=20, origemAgencia=0}
+```
+
+**Empate real, encontrado sem precisar forçar nada:** os três primeiros eventos (`CRIACAO_CONTA` em `agencia-0`, `agencia-2` e `agencia-1`) têm **o mesmo `timestampLamport` (1)** — porque era o primeiro evento local de cada uma das três agências, e elas nunca tinham trocado nenhuma mensagem entre si até aquele momento. Também dá pra ver a regra 2/3 funcionando entre `agencia-0` e `agencia-1`: o débito ficou com timestamp 2, o `aoEnviar()` internamente avançou para 3 (não vira um evento próprio, só carimba a mensagem), e a agência 1 aplicou `max(1, 3) + 1 = 4` ao receber — exatamente o valor 4 que aparece no log.
+
+**1. O relógio de Lamport garante `timestamp(A) < timestamp(B)` se A aconteceu antes de B causalmente, mas não garante a volta. O que isso significa na prática ao ver dois eventos com timestamps diferentes, sem saber se um influenciou o outro?**
+
+Significa que a ordem dos timestamps na linha do tempo é **confiável em uma direção só**: se eu vejo `timestamp(A) < timestamp(B)`, isso **não me diz** se A realmente causou B ou se A e B são só dois eventos concorrentes que, por acaso (ou por causa do incremento monotônico de cada relógio), acabaram numerados nessa ordem. Por exemplo, os três `CRIACAO_CONTA` do exemplo acima aparecem na ordem agencia-0, agencia-2, agencia-1 simplesmente porque foi a ordem em que os `curl` chegaram a cada servidor (concorrência de fato, sem nenhuma relação causal entre eles) — mas se os timestamps não tivessem empatado (por exemplo, se a agencia-2 já tivesse processado outro evento antes), a leitura ingênua da linha do tempo poderia sugerir uma relação de causa e efeito que simplesmente não existe. Ou seja: o relógio de Lamport prova ausência de causalidade quando os timestamps estão "fora de ordem" de um jeito impossível, mas **nunca prova presença de causalidade** só porque um timestamp é menor que outro.
+
+**2. O relógio de Lamport, sozinho, seria suficiente para distinguir com certeza "A e B são concorrentes" de "A aconteceu antes de B"? Por que isso motiva o relógio vetorial do Sprint 2?**
+
+Não. O exemplo capturado acima é a prova prática disso: os três eventos de criação de conta têm timestamps **diferentes** entre si na saída ordenada (1, mas com desempate por hora de parede/agência para ordená-los na exibição) mesmo sendo **genuinamente concorrentes** (nenhum influenciou o outro) — e, olhando só para os números, não existe nenhuma forma de provar isso a partir do relógio escalar de Lamport; a gente só sabe que são concorrentes porque conhece o cenário de teste (sabemos que essas agências nunca trocaram mensagens antes daquele ponto). Em um sistema real, sem esse conhecimento de bastidores, dois eventos com timestamps de Lamport diferentes são **ambíguos**: pode ser causalidade, pode ser concorrência disfarçada de ordem. É exatamente essa ambiguidade que motiva o relógio vetorial (Sprint 2): em vez de um único contador escalar por processo, cada processo mantém um vetor com o "conhecimento" que tem do progresso de *todos* os processos do sistema — o que permite comparar dois timestamps vetoriais e concluir, com certeza matemática, se um domina o outro (causalidade) ou se nenhum domina o outro (concorrência real), sem precisar de conhecimento externo sobre o cenário.
 
 ## Parte F — Autenticação (JWT)
 
