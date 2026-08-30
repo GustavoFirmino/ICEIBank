@@ -6,6 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.common;
 
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.AgenciaDestinoIndisponivelException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ParticaoInvalidaException;
@@ -37,5 +38,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ContaDuplicadaException.class)
     public ResponseEntity<ErroResponse> tratarContaDuplicada(ContaDuplicadaException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AgenciaDestinoIndisponivelException.class)
+    public ResponseEntity<ErroResponse> tratarAgenciaDestinoIndisponivel(AgenciaDestinoIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(new ErroResponse(ex.getMessage()));
     }
 }
