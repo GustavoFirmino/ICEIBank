@@ -129,4 +129,35 @@ class ContaServiceTest {
         assertThrows(DadosInvalidosException.class,
                 () -> contaService.criarConta(new CriarContaRequest(null, "Ana", 100L)));
     }
+
+    @Test
+    void historicoListaOsEventosNaOrdemEmQueAconteceram() {
+        // Funcionalidade adicional: historico de transacoes por conta.
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        contaService.depositar(0, 25);
+        contaService.sacar(0, 10);
+
+        var historico = contaService.historico(0);
+
+        assertEquals(3, historico.size());
+        assertEquals("CRIACAO_CONTA", historico.get(0).tipo());
+        assertEquals("DEPOSITO", historico.get(1).tipo());
+        assertEquals("SAQUE", historico.get(2).tipo());
+    }
+
+    @Test
+    void historicoDeContaInexistenteLancaExcecao() {
+        assertThrows(ContaNaoEncontradaException.class, () -> contaService.historico(999));
+    }
+
+    @Test
+    void historicoNaoMisturaEventosDeOutraConta() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        contaService.criarConta(new CriarContaRequest(3L, "Bruno", 50L));
+        contaService.depositar(0, 10);
+
+        var historicoConta0 = contaService.historico(0);
+
+        assertEquals(2, historicoConta0.size()); // so criacao + deposito da conta 0
+    }
 }

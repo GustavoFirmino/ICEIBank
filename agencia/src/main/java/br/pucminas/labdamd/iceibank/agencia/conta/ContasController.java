@@ -8,9 +8,12 @@ package br.pucminas.labdamd.iceibank.agencia.conta;
 
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.HistoricoEventoResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.MovimentoRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/contas")
@@ -41,5 +44,11 @@ public class ContasController {
     @PostMapping("/{id}/sacar")
     public ContaResponse sacar(@PathVariable long id, @RequestBody MovimentoRequest request) {
         return contaService.sacar(id, request.valor());
+    }
+
+    /** Funcionalidade adicional: historico de transacoes por conta. */
+    @GetMapping("/{id}/historico")
+    public List<HistoricoEventoResponse> historico(@PathVariable long id) {
+        return contaService.historico(id);
     }
 }

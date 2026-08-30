@@ -13,10 +13,12 @@ import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosExce
 import br.pucminas.labdamd.iceibank.agencia.config.AgenciaProperties;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.HistoricoEventoResponse;
 import br.pucminas.labdamd.iceibank.agencia.eventlog.EventLogService;
 import br.pucminas.labdamd.iceibank.agencia.eventlog.TipoEvento;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -78,6 +80,19 @@ public class ContaService {
         eventLog.registrar(TipoEvento.SAQUE, ts, id, Map.of("valor", valor, "novoSaldo", conta.saldo()));
 
         return ContaResponse.de(conta);
+    }
+
+    /**
+     * Funcionalidade adicional: historico de transacoes por conta. Lista os
+     * eventos ja registrados para esta conta (criacao, depositos, saques,
+     * transferencias enviadas/recebidas), na ordem em que aconteceram
+     * NESTA agencia.
+     */
+    public List<HistoricoEventoResponse> historico(long id) {
+        buscarOuLancar(id); // 404 se a conta nao existe (nesta agencia)
+        return eventLog.historicoDaConta(id).stream()
+                .map(HistoricoEventoResponse::de)
+                .toList();
     }
 
     Conta buscarOuLancar(long id) {
