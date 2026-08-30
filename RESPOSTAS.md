@@ -22,7 +22,27 @@ Isso implica que uma agência que processa eventos rapidamente (contador alto) *
 
 ## Parte D — Transferências e limitação conhecida
 
-_A preencher após a implementação da Parte D._
+**1. Por que a transferência local não precisa da lógica de `aoEnviar()`/`aoReceber()` do relógio de Lamport, enquanto a transferência entre agências precisa?**
+
+`aoEnviar()` e `aoReceber()` existem para carimbar e ajustar o relógio lógico exatamente no momento em que uma **mensagem atravessa a rede entre dois processos diferentes** — é aí que a causalidade entre eventos de processos distintos precisa ser preservada (regras 2 e 3 de Lamport). Numa transferência local, o débito e o crédito acontecem **dentro da mesma agência, no mesmo processo, na mesma thread da requisição** — não existe nenhuma mensagem sendo enviada para outro processo, então não há "outro relógio" com quem sincronizar. Por isso a transferência local usa `eventoLocal()` duas vezes (uma para o débito, outra para o crédito, cada uma como seu próprio evento — comprovado no log real: `TRANSFERENCIA_DEBITO` timestamp 3 seguido de `TRANSFERENCIA_CREDITO` timestamp 4 na mesma agência), enquanto a transferência entre agências usa `eventoLocal()` para o débito e depois `aoEnviar()` para carimbar o valor que vai viajar na requisição HTTP até a outra agência, que por sua vez usa `aoReceber()` ao processar `creditar-remoto`.
+
+**2. Reproduza a falha conhecida e observe o saldo da conta de origem depois do erro. Ele foi revertido? O que isso significa em termos de consistência do sistema bancário?**
+
+Testado de verdade: com a Agência 0 e a Agência 1 no ar, criei a conta 0 (Agência 0, saldo 100) e a conta 1 (Agência 1, saldo 50) e fiz duas transferências de 0 para 1. Depois de uma transferência bem-sucedida de 20 (saldo da conta 0 caiu para 50), **derrubei o processo da Agência 1** e tentei uma nova transferência de 15. A resposta foi:
+
+```
+HTTP 502
+{"erro":"Falha ao contatar agencia de destino. Debito ja aplicado - inconsistencia conhecida (ver Sprint 4)."}
+```
+
+E o saldo da conta de origem, consultado logo em seguida, ficou em **35** (100 − 20 − 15) — ou seja, **o débito não foi revertido**. O log confirmou exatamente isso: um evento `TRANSFERENCIA_DEBITO` (timestamp 7) seguido de `TRANSFERENCIA_FALHOU` (timestamp 9) com o erro real (`Connection refused`), sem nenhum evento de estorno.
+
+Em termos de consistência bancária, isso é uma violação da propriedade de **atomicidade** que qualquer transação financeira precisa ter: ou a operação inteira acontece (débito e crédito), ou nenhuma parte dela acontece — nunca só metade. Aqui, os R$15 saíram da conta de origem e não entraram em lugar nenhum: momentaneamente "sumiram" do sistema como um todo (embora continuem corretamente subtraídos do lado que os debitou). Isso é exatamente o tipo de inconsistência que uma transação distribuída de verdade (2PC ou Saga, Sprint 4) existe para evitar.
+
+**3. Duas formas possíveis de corrigir esse problema no Sprint 4 (alto nível, sem implementar agora):**
+
+- **Two-Phase Commit (2PC):** antes de aplicar o débito de verdade, a agência de origem pergunta à agência de destino "você consegue receber esse crédito?" (fase de *prepare*) e só efetiva o débito e pede para a outra agência efetivar o crédito depois que ambas confirmarem que estão prontas (fase de *commit*). Se a agência de destino não responder ou recusar na fase de preparação, a origem simplesmente nunca aplica o débito — nada precisa ser revertido, porque nada foi aplicado de forma definitiva ainda.
+- **Saga (compensação):** o débito é aplicado imediatamente (como hoje), mas cada etapa da transação registra uma **ação de compensação** correspondente. Se uma etapa posterior falhar (como a chamada `creditar-remoto`), o sistema executa automaticamente a compensação da etapa anterior — nesse caso, um crédito de estorno na conta de origem, disparado pelo próprio sistema ao detectar a falha, em vez de simplesmente logar a inconsistência e deixar o saldo desbalanceado como acontece hoje.
 
 ## Parte E — Linha do tempo unificada
 
