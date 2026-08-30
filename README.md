@@ -76,6 +76,23 @@ cd agencia
 mvn -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.ferramentas.MesclarLogs"
 ```
 
+## Endpoints da API
+
+Todas as rotas abaixo (exceto `/auth/login` e `/contas/{id}/creditar-remoto`) exigem o header `Authorization: Bearer <token>` (ver Parte F).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/auth/login` | Login (`{"username","password"}`), devolve `{"token","expiraEmSegundos"}` |
+| POST | `/contas` | Cria conta (`{"id","titular","saldoInicial"}`) |
+| GET | `/contas/{id}` | Consulta saldo |
+| POST | `/contas/{id}/depositar` | Deposita (`{"valor"}`) |
+| POST | `/contas/{id}/sacar` | Saca (`{"valor"}`) |
+| GET | `/contas/{id}/historico` | **Extra:** histórico de eventos da conta |
+| POST | `/transferencias` | Transfere (`{"idOrigem","idDestino","valor","idOperacao"}` — `idOperacao` é opcional; ver **Extra: idempotência** abaixo) |
+| POST | `/contas/{id}/creditar-remoto` | Interna, agência-a-agência (`X-Internal-Key`, não JWT) |
+
+**Idempotência:** se `idOperacao` for informado em `POST /transferencias` e a mesma requisição for reenviada com o mesmo valor, a transferência não é aplicada de novo — a resposta volta com `"repetida": true` e o saldo não muda uma segunda vez.
+
 ## Como rodar o frontend
 
 Pré-requisitos: Node.js 20 LTS+.
