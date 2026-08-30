@@ -1,0 +1,237 @@
+/*
+ * Aluno: Gustavo Pessoa Firmino Duarte
+ * Disciplina: Laboratorio de Desenvolvimento de Aplicacoes Moveis e Distribuidas
+ * Projeto: ICEIBank - Sprint 1 - Parte G (Frontend)
+ * OFFSET pessoal (2 ultimos digitos da matricula): 47
+ *
+ * Valores default = os mesmos hex devolvidos por GET /design-system (o app
+ * tambem busca esse endpoint em tempo de execucao e sobrescreve estas
+ * variaveis - ver ThemeLoader.jsx - mas ficam aqui como fallback caso a
+ * API esteja fora do ar quando a tela de login carrega).
+ */
+:root {
+  --cor-primaria: #0a2540;
+  --cor-primaria-acao: #2563eb;
+  --cor-sucesso: #16a34a;
+  --cor-atencao: #f97316;
+  --cor-erro: #dc2626;
+  --cor-fundo: #f8fafc;
+  --cor-superficie: #ffffff;
+  --cor-texto: #0f172a;
+  --cor-borda: #e2e8f0;
+
+  --fonte-base: Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fonte-base);
+  font-size: 16px;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+.cartao {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+h1, h2, h3 {
+  font-weight: 700;
+  margin-top: 0;
+}
+
+.marca {
+  color: var(--cor-primaria);
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.subtitulo {
+  text-align: center;
+  color: #64748b;
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+}
+
+.campo {
+  margin-bottom: 1rem;
+}
+
+.campo label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--cor-texto);
+}
+
+.campo input,
+.campo select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+}
+
+.campo input:focus,
+.campo select:focus {
+  outline: 2px solid var(--cor-primaria-acao);
+  outline-offset: 1px;
+}
+
+.botao {
+  display: inline-block;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  background: var(--cor-primaria-acao);
+  color: white;
+  transition: opacity 0.15s;
+}
+
+.botao:hover {
+  opacity: 0.9;
+}
+
+.botao:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.botao-secundario {
+  background: transparent;
+  color: var(--cor-primaria);
+  border: 1px solid var(--cor-borda);
+}
+
+.linha {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.linha > * {
+  flex: 1;
+}
+
+.saldo {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--cor-primaria);
+}
+
+.banner {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.banner-erro {
+  background: #fef2f2;
+  color: var(--cor-erro);
+  border: 1px solid #fecaca;
+}
+
+.banner-sucesso {
+  background: #f0fdf4;
+  color: var(--cor-sucesso);
+  border: 1px solid #bbf7d0;
+}
+
+.banner-atencao {
+  background: #fff7ed;
+  color: var(--cor-atencao);
+  border: 1px solid #fed7aa;
+}
+
+.cabecalho-app {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.cabecalho-app .usuario {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.link-sair {
+  background: none;
+  border: none;
+  color: var(--cor-primaria-acao);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  width: auto;
+  padding: 0;
+}
+
+.lista-historico {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.lista-historico li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--cor-borda);
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lista-historico li:last-child {
+  border-bottom: none;
+}
+
+.tag-tipo {
+  font-weight: 600;
+  color: var(--cor-primaria);
+}
+
+.texto-mudo {
+  color: #64748b;
+  font-size: 0.85rem;
+}
