@@ -54,12 +54,17 @@ public class AuthController {
      * alem do padrao configurado) - senao qualquer cliente poderia pedir
      * um token praticamente eterno via ?ttlOverrideSeconds=999999999,
      * o que anularia a propria politica de expiracao curta do JWT.
+     *
+     * Nao ha limite inferior: valores zero ou negativos sao propositalmente
+     * permitidos, pois so servem para gerar um token JA expirado (o cenario
+     * de evidencia "auth-token-expirado" da Parte F) - nao ha risco de
+     * seguranca em permitir isso, ja que so torna o token AINDA mais curto.
      */
     private long resolverTtl(Long ttlOverrideSeconds) {
         long padrao = jwtProperties.expirationSeconds();
         if (ttlOverrideSeconds == null || !jwtProperties.debugEndpointsEnabled()) {
             return padrao;
         }
-        return Math.min(Math.max(ttlOverrideSeconds, 1), padrao);
+        return Math.min(ttlOverrideSeconds, padrao);
     }
 }

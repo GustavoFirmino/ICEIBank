@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TransferenciaServiceTest {
 
     // Agencia 9 fake, so para nomear o arquivo de log de teste sem colidir com dados reais.
-    private final Path arquivoDeTeste = Paths.get("data", "agencia-9.jsonl");
+    private final Path arquivoDeTeste = Paths.get("data", "agencia-93.jsonl");
 
     private ContaRepository contaRepository;
     private RemoteBranchClientFalso remoteBranchClientFalso;
@@ -68,7 +68,7 @@ class TransferenciaServiceTest {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         Files.createDirectories(arquivoDeTeste.getParent());
         Files.deleteIfExists(arquivoDeTeste); // precisa ser ANTES de abrir o EventLogService (que ja abre o arquivo)
-        eventLog = new EventLogService(new AgenciaProperties(9, 3, 4047, "chave"), objectMapper);
+        eventLog = new EventLogService(new AgenciaProperties(93, 3, 4047, "chave"), objectMapper);
 
         AgenciaProperties agencia0 = new AgenciaProperties(0, 3, 4047, "chave-interna-teste");
         contaRepository = new ContaRepository();

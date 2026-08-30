@@ -18,9 +18,17 @@ public interface RemoteBranchClient {
 
     /**
      * Chama POST /contas/{id}/creditar-remoto na agencia de destino.
-     * Lanca uma excecao em runtime se a chamada falhar por qualquer motivo
-     * (agencia fora do ar, timeout, resposta de erro) - quem chama decide o
-     * que fazer com a falha (ver TransferenciaService).
+     *
+     * Contrato de excecao: implementacoes DEVEM lancar especificamente
+     * {@link br.pucminas.labdamd.iceibank.agencia.common.exceptions.ComunicacaoAgenciaException}
+     * quando a falha for de COMUNICACAO com a agencia de destino (fora do
+     * ar, timeout, resposta de erro HTTP). E esse tipo especifico que
+     * TransferenciaService captura para aplicar a limitacao conhecida
+     * (debito nao revertido) - lancar um RuntimeException generico faria a
+     * falha propagar sem tratamento, e lancar ComunicacaoAgenciaException
+     * para um bug que NAO e de comunicacao mascararia o bug real como se
+     * fosse uma agencia fora do ar. Qualquer outra excecao (bug de
+     * programacao) deve propagar normalmente, sem ser encapsulada.
      */
     void creditarRemoto(int idAgenciaDestino, long idConta, long valor, long timestampLamport, int origemAgencia);
 }

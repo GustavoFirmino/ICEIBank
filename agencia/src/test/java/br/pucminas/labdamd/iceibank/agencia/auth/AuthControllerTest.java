@@ -63,4 +63,17 @@ class AuthControllerTest {
         assertNotNull(corpo);
         assertEquals(300, corpo.expiraEmSegundos(), "o override so pode encurtar, nunca alongar, a expiracao padrao");
     }
+
+    @Test
+    void ttlOverrideZeroOuNegativoGeraTokenJaExpirado() {
+        // O caso de uso original do parametro: gerar um token JA expirado
+        // para a evidencia "auth-token-expirado" (Parte F), sem precisar
+        // esperar. Nao pode ter limite inferior de 1s (isso quebraria esse caso).
+        ResponseEntity<?> resposta = controller.login(new LoginRequest("gustavo", "senha123"), -5L);
+
+        TokenResponse corpo = (TokenResponse) resposta.getBody();
+        assertNotNull(corpo);
+        assertEquals(-5, corpo.expiraEmSegundos());
+        assertThrows(io.jsonwebtoken.ExpiredJwtException.class, () -> jwtService.validarToken(corpo.token()));
+    }
 }
