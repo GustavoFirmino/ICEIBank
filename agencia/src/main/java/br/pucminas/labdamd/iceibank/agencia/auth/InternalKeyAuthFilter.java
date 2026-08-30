@@ -44,6 +44,9 @@ public class InternalKeyAuthFilter extends OncePerRequestFilter {
     /** So se aplica a rota interna agencia-a-agencia - todas as outras passam direto. */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true; // preflight de CORS - ver justificativa em JwtAuthFilter
+        }
         return !PATH_MATCHER.match(SecurityPaths.CREDITAR_REMOTO, request.getServletPath());
     }
 

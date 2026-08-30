@@ -49,6 +49,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        // Preflight de CORS (OPTIONS) nunca carrega Authorization - o navegador
+        // manda essa checagem antes, sem nenhum header custom. Se este filtro
+        // exigisse token nela, o preflight falharia e o navegador reportaria
+        // erro de CORS mesmo com a origem liberada.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
         String caminho = request.getServletPath();
         return SecurityPaths.PUBLICAS.stream().anyMatch(padrao -> PATH_MATCHER.match(padrao, caminho));
     }
