@@ -97,7 +97,27 @@ _A preencher após a implementação da Parte G._
 
 ## Funcionalidades adicionais
 
-_A preencher: idempotência de transferências e histórico de transações por conta._
+O roteiro pede pelo menos uma funcionalidade adicional (seção 2.1). Implementei duas:
+
+### 1. Idempotência de transferências
+
+**O que faz:** `POST /transferencias` aceita um campo opcional `idOperacao` (uma string única por operação, ex.: um UUID gerado pelo cliente). Se a mesma requisição for reenviada com o mesmo `idOperacao` — por exemplo, porque o cliente não recebeu a resposta da primeira tentativa por um timeout de rede e não sabe se ela foi aplicada — a transferência **não é processada de novo**: a API devolve a mesma resposta da primeira vez, com um campo extra `repetida: true`, e o saldo das contas não muda uma segunda vez.
+
+**Por que escolhi essa:** é o tipo de problema que só aparece de verdade em um sistema distribuído — em uma chamada local, "chamar duas vezes por engano" quase nunca é uma preocupação séria, mas numa rede real (a mesma rede que já vimos derrubar transferências entre agências na Parte D), retries por timeout são o normal, não a exceção. Sem idempotência, um cliente que reenvia por segurança (achando que a primeira tentativa falhou) corre o risco de debitar a mesma conta duas vezes. Implementar isso aqui conecta diretamente com o tema central do sprint: mais uma consequência prática de operar em um ambiente onde mensagens podem se perder ou demorar.
+
+**Como testei:** `TransferenciaServiceTest.transferenciaComMesmoIdOperacaoNaoEAplicadaDuasVezes` e teste manual via `curl` (evidência em `evidencias/sprint1/funcionalidade-adicional.png`): enviei a mesma transferência duas vezes com o mesmo `idOperacao` e confirmei que o saldo só mudou uma vez, com a segunda resposta marcada `repetida: true`.
+
+**Implementação:** `IdempotencyStore` (mapa em memória `idOperacao -> resposta`, só na agência de origem) + `TransferenciaService.transferir` verificando o cache antes de executar. Quando `idOperacao` não é informado, a transferência funciona exatamente como no escopo obrigatório do roteiro (sem nenhuma mudança de comportamento) — a funcionalidade é aditiva, não substitui nada.
+
+### 2. Histórico de transações por conta
+
+**O que faz:** `GET /contas/{id}/historico` lista todos os eventos já registrados para aquela conta nesta agência (criação, depósitos, saques, transferências enviadas/recebidas/revertidas), na ordem em que aconteceram, cada um com seu timestamp de Lamport e a hora de parede.
+
+**Por que escolhi essa:** o sistema já registra cada operação como um evento (para a linha do tempo da Parte E) — expor isso por conta é reaproveitar uma estrutura que já existia, sem duplicar lógica, e é o tipo de funcionalidade que qualquer usuário de um banco de verdade esperaria (um extrato).
+
+**Como testei:** `ContaServiceTest.historicoListaOsEventosNaOrdemEmQueAconteceram`, `historicoDeContaInexistenteLancaExcecao`, `historicoNaoMisturaEventosDeOutraConta`, e teste manual via `curl` confirmando que `GET /contas/0/historico` devolve a lista correta de eventos (evidência em `evidencias/sprint1/funcionalidade-adicional.png`).
+
+**Implementação:** `EventLogService.historicoDaConta(id)` (já existia, criado junto com o registro de eventos da Parte B) filtra a lista de eventos em memória por `idConta`; `ContaService.historico(id)` valida que a conta existe nesta agência (404 caso não) e mapeia para `HistoricoEventoResponse`; exposto via `GET /contas/{id}/historico`.
 
 ## Checklist final de entrega
 
