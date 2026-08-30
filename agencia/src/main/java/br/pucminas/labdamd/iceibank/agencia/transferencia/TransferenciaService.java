@@ -51,21 +51,13 @@ public class TransferenciaService {
         String idOperacao = request.idOperacao();
 
         // Funcionalidade adicional: idempotencia. Se o cliente reenviar a
-        // MESMA operacao (mesmo idOperacao), nao aplicamos de novo - so
-        // devolvemos a resposta da primeira vez, marcada como "repetida".
-        if (idOperacao != null) {
-            TransferenciaResponse jaProcessada = idempotencyStore.buscar(idOperacao);
-            if (jaProcessada != null) {
-                return new TransferenciaResponse(jaProcessada.mensagem(), true);
-            }
+        // MESMA operacao (mesmo idOperacao) - inclusive concorrentemente, ou
+        // depois de uma falha - nao aplicamos de novo. Ver IdempotencyStore
+        // para o porque de nao ser um simples "buscar, depois registrar".
+        if (idOperacao == null) {
+            return executarTransferencia(request);
         }
-
-        TransferenciaResponse resposta = executarTransferencia(request);
-
-        if (idOperacao != null) {
-            idempotencyStore.registrar(idOperacao, resposta);
-        }
-        return resposta;
+        return idempotencyStore.executarUmaVezSo(idOperacao, () -> executarTransferencia(request));
     }
 
     private TransferenciaResponse executarTransferencia(TransferenciaRequest request) {

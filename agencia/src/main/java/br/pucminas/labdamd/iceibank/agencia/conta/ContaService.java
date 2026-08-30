@@ -89,7 +89,9 @@ public class ContaService {
      * NESTA agencia.
      */
     public List<HistoricoEventoResponse> historico(long id) {
-        buscarOuLancar(id); // 404 se a conta nao existe (nesta agencia)
+        if (!contaRepository.existe(id)) { // 404 se a conta nao existe (nesta agencia)
+            throw new ContaNaoEncontradaException(id);
+        }
         return eventLog.historicoDaConta(id).stream()
                 .map(HistoricoEventoResponse::de)
                 .toList();

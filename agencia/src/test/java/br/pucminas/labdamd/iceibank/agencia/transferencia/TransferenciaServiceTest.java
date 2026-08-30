@@ -174,6 +174,63 @@ class TransferenciaServiceTest {
     }
 
     @Test
+    void retentarComMesmoIdOperacaoAposFalhaNaoDebitaDeNovo() {
+        // Correcao apos revisao de codigo: a primeira versao da idempotencia
+        // so cacheava SUCESSOS - um retry apos a falha conhecida (Parte D)
+        // debitava a conta de novo a cada tentativa, o oposto do esperado.
+        criarConta(0, 100);
+        String idOperacao = "op-com-falha";
+        remoteBranchClientFalso.excecaoASerLancada = new ComunicacaoAgenciaException("Connection refused", null);
+
+        // primeira tentativa: falha (debito local ja e aplicado, limitacao conhecida)
+        assertThrows(AgenciaDestinoIndisponivelException.class,
+                () -> transferenciaService.transferir(new TransferenciaRequest(0, 1, 20, idOperacao)));
+        assertEquals(80, contaRepository.buscar(0).orElseThrow().saldo());
+
+        // segunda tentativa (retry do cliente, mesmo idOperacao): relanca a
+        // MESMA falha, sem debitar de novo e sem chamar a agencia remota outra vez
+        assertThrows(AgenciaDestinoIndisponivelException.class,
+                () -> transferenciaService.transferir(new TransferenciaRequest(0, 1, 20, idOperacao)));
+        assertEquals(80, contaRepository.buscar(0).orElseThrow().saldo(), "nao pode debitar duas vezes no retry");
+        assertEquals(1, remoteBranchClientFalso.chamadas, "a segunda tentativa nao deveria nem chamar a rede");
+    }
+
+    @Test
+    void duasThreadsComMesmoIdOperacaoNuncaAplicamAOperacaoDuasVezes() throws InterruptedException {
+        // Correcao apos revisao de codigo: buscar()-depois-registrar() nao era
+        // atomico, entao duas requisicoes concorrentes com o mesmo idOperacao
+        // podiam ambas passar pelo cache-miss e debitar duas vezes.
+        criarConta(0, 100);
+        criarConta(3, 10);
+        String idOperacao = "op-concorrente";
+        int totalThreads = 20;
+
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(totalThreads);
+        java.util.concurrent.CountDownLatch todasProntas = new java.util.concurrent.CountDownLatch(totalThreads);
+        java.util.concurrent.CountDownLatch podeComecar = new java.util.concurrent.CountDownLatch(1);
+
+        for (int i = 0; i < totalThreads; i++) {
+            pool.submit(() -> {
+                todasProntas.countDown();
+                try {
+                    podeComecar.await();
+                    transferenciaService.transferir(new TransferenciaRequest(0, 3, 10, idOperacao));
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+        todasProntas.await();
+        podeComecar.countDown(); // libera todas as threads de uma vez, maximizando a chance de corrida
+        pool.shutdown();
+        pool.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS);
+
+        // Se a operacao tivesse sido aplicada mais de uma vez, o saldo teria caido mais que 10.
+        assertEquals(90, contaRepository.buscar(0).orElseThrow().saldo());
+        assertEquals(20, contaRepository.buscar(3).orElseThrow().saldo());
+    }
+
+    @Test
     void transferenciaEntreAgenciasComFalhaNaoReverteODebito_limitacaoConhecida() {
         criarConta(0, 100);
         remoteBranchClientFalso.excecaoASerLancada = new ComunicacaoAgenciaException("Connection refused", null);
