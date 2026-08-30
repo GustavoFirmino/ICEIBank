@@ -9,8 +9,10 @@ package br.pucminas.labdamd.iceibank.agencia.common;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.AgenciaDestinoIndisponivelException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ParticaoInvalidaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.SaldoInsuficienteException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ValorInvalidoException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,5 +45,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AgenciaDestinoIndisponivelException.class)
     public ResponseEntity<ErroResponse> tratarAgenciaDestinoIndisponivel(AgenciaDestinoIndisponivelException ex) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(new ErroResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ValorInvalidoException.class)
+    public ResponseEntity<ErroResponse> tratarValorInvalido(ValorInvalidoException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(DadosInvalidosException.class)
+    public ResponseEntity<ErroResponse> tratarDadosInvalidos(DadosInvalidosException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErroResponse(ex.getMessage()));
     }
 }

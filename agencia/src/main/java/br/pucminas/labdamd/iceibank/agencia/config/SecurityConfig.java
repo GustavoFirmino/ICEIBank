@@ -29,8 +29,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login").permitAll()
-                        .requestMatchers("/contas/*/creditar-remoto").permitAll() // protegida por X-Internal-Key, nao por JWT
+                        .requestMatchers(SecurityPaths.PUBLICAS.toArray(new String[0])).permitAll()
+                        // /contas/*/creditar-remoto e protegida por X-Internal-Key, nao por JWT
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthFilter(jwtService, objectMapper), UsernamePasswordAuthenticationFilter.class);
         return http.build();

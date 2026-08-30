@@ -7,6 +7,7 @@
 package br.pucminas.labdamd.iceibank.agencia.auth;
 
 import br.pucminas.labdamd.iceibank.agencia.common.ErroResponse;
+import br.pucminas.labdamd.iceibank.agencia.config.SecurityPaths;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -37,7 +38,6 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
-    private static final List<String> CAMINHOS_LIBERADOS = List.of("/auth/login", "/contas/*/creditar-remoto");
 
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
@@ -50,7 +50,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String caminho = request.getServletPath();
-        return CAMINHOS_LIBERADOS.stream().anyMatch(padrao -> PATH_MATCHER.match(padrao, caminho));
+        return SecurityPaths.PUBLICAS.stream().anyMatch(padrao -> PATH_MATCHER.match(padrao, caminho));
     }
 
     @Override

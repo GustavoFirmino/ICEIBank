@@ -9,6 +9,7 @@ package br.pucminas.labdamd.iceibank.agencia.conta;
 import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosException;
 import br.pucminas.labdamd.iceibank.agencia.config.AgenciaProperties;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
@@ -35,6 +36,9 @@ public class ContaService {
     }
 
     public ContaResponse criarConta(CriarContaRequest request) {
+        if (request.id() == null) {
+            throw new DadosInvalidosException("O campo 'id' e obrigatorio para criar uma conta.");
+        }
         long id = request.id();
         agenciaProperties.validarParticaoOuLancar(id);
 

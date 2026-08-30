@@ -8,6 +8,7 @@ package br.pucminas.labdamd.iceibank.agencia.transferencia;
 
 import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.AgenciaDestinoIndisponivelException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ComunicacaoAgenciaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.SaldoInsuficienteException;
 import br.pucminas.labdamd.iceibank.agencia.config.AgenciaProperties;
@@ -38,6 +39,7 @@ class TransferenciaServiceTest {
     private ContaRepository contaRepository;
     private RemoteBranchClientFalso remoteBranchClientFalso;
     private TransferenciaService transferenciaService;
+    private EventLogService eventLog;
 
     /** Duble de teste simples para RemoteBranchClient - sem HTTP real, sem framework de mock. */
     private static class RemoteBranchClientFalso implements RemoteBranchClient {
@@ -64,9 +66,9 @@ class TransferenciaServiceTest {
     @BeforeEach
     void configurar() throws IOException {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        EventLogService eventLog = new EventLogService(new AgenciaProperties(9, 3, 4047, "chave"), objectMapper);
         Files.createDirectories(arquivoDeTeste.getParent());
-        Files.deleteIfExists(arquivoDeTeste);
+        Files.deleteIfExists(arquivoDeTeste); // precisa ser ANTES de abrir o EventLogService (que ja abre o arquivo)
+        eventLog = new EventLogService(new AgenciaProperties(9, 3, 4047, "chave"), objectMapper);
 
         AgenciaProperties agencia0 = new AgenciaProperties(0, 3, 4047, "chave-interna-teste");
         contaRepository = new ContaRepository();
@@ -77,6 +79,7 @@ class TransferenciaServiceTest {
 
     @AfterEach
     void limpar() throws IOException {
+        eventLog.fechar();
         Files.deleteIfExists(arquivoDeTeste);
     }
 
@@ -140,7 +143,7 @@ class TransferenciaServiceTest {
     @Test
     void transferenciaEntreAgenciasComFalhaNaoReverteODebito_limitacaoConhecida() {
         criarConta(0, 100);
-        remoteBranchClientFalso.excecaoASerLancada = new RuntimeException("Connection refused");
+        remoteBranchClientFalso.excecaoASerLancada = new ComunicacaoAgenciaException("Connection refused", null);
 
         AgenciaDestinoIndisponivelException excecao = assertThrows(AgenciaDestinoIndisponivelException.class,
                 () -> transferenciaService.transferir(new TransferenciaRequest(0, 1, 20)));
@@ -148,6 +151,43 @@ class TransferenciaServiceTest {
         assertTrue(excecao.getMessage().contains("Debito ja aplicado"));
         // Esta e a limitacao conhecida do Sprint 1: o debito NAO e revertido.
         assertEquals(80, contaRepository.buscar(0).orElseThrow().saldo());
+    }
+
+    @Test
+    void bugNaoRelacionadoARedeNaoEMascaradoComoAgenciaIndisponivel() {
+        // Correcao apos revisao de codigo: so ComunicacaoAgenciaException deve
+        // virar "agencia indisponivel" - qualquer outro RuntimeException (ex.:
+        // um bug de verdade em RemoteBranchClient) precisa propagar como esta.
+        criarConta(0, 100);
+        remoteBranchClientFalso.excecaoASerLancada = new IllegalStateException("bug nao relacionado a rede");
+
+        assertThrows(IllegalStateException.class,
+                () -> transferenciaService.transferir(new TransferenciaRequest(0, 1, 20)));
+    }
+
+    @Test
+    void transferenciaComValorNegativoLancaExcecaoENaoInverteOSentido() {
+        criarConta(0, 100);
+        criarConta(3, 10);
+
+        assertThrows(br.pucminas.labdamd.iceibank.agencia.common.exceptions.ValorInvalidoException.class,
+                () -> transferenciaService.transferir(new TransferenciaRequest(0, 3, -50)));
+
+        assertEquals(100, contaRepository.buscar(0).orElseThrow().saldo());
+        assertEquals(10, contaRepository.buscar(3).orElseThrow().saldo());
+    }
+
+    @Test
+    void transferenciaLocalComContaDestinoInexistenteRegistraEstornoNoLog() {
+        criarConta(0, 100);
+
+        assertThrows(ContaNaoEncontradaException.class,
+                () -> transferenciaService.transferir(new TransferenciaRequest(0, 3, 30)));
+
+        var historico = eventLog.historicoDaConta(0);
+        assertEquals(2, historico.size(), "deveria ter o debito E o estorno no historico da conta");
+        assertEquals(br.pucminas.labdamd.iceibank.agencia.eventlog.TipoEvento.TRANSFERENCIA_DEBITO, historico.get(0).tipo());
+        assertEquals(br.pucminas.labdamd.iceibank.agencia.eventlog.TipoEvento.TRANSFERENCIA_REVERTIDA, historico.get(1).tipo());
     }
 
     @Test

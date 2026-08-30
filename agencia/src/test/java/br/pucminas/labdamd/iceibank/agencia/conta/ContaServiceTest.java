@@ -9,8 +9,10 @@ package br.pucminas.labdamd.iceibank.agencia.conta;
 import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ParticaoInvalidaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.SaldoInsuficienteException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ValorInvalidoException;
 import br.pucminas.labdamd.iceibank.agencia.config.AgenciaProperties;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
@@ -35,13 +37,14 @@ class ContaServiceTest {
     private final Path arquivoDeTeste = Paths.get("data", "agencia-9.jsonl");
 
     private ContaService contaService;
+    private EventLogService eventLog;
 
     @BeforeEach
     void configurar() throws IOException {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        EventLogService eventLog = new EventLogService(AGENCIA_DE_TESTE, objectMapper);
         Files.createDirectories(arquivoDeTeste.getParent());
-        Files.deleteIfExists(arquivoDeTeste);
+        Files.deleteIfExists(arquivoDeTeste); // precisa ser ANTES de construir (o construtor ja abre o arquivo)
+        eventLog = new EventLogService(AGENCIA_DE_TESTE, objectMapper);
 
         // O EventLogService acima usa a "agencia 9" so para nomear o arquivo de teste
         // (data/agencia-9.jsonl) sem colidir com dados reais; a logica de particao em
@@ -52,6 +55,7 @@ class ContaServiceTest {
 
     @AfterEach
     void limpar() throws IOException {
+        eventLog.fechar();
         Files.deleteIfExists(arquivoDeTeste);
     }
 
@@ -101,5 +105,27 @@ class ContaServiceTest {
         contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
         ContaResponse resposta = contaService.sacar(0, 40);
         assertEquals(60, resposta.saldo());
+    }
+
+    @Test
+    void sacarComValorNegativoLancaExcecaoENaoAumentaOSaldo() {
+        // Correcao apos revisao de codigo: sem essa validacao, sacar(-1000000)
+        // passava direto pelo "saldo < valor" e CREDITAVA a conta.
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        assertThrows(ValorInvalidoException.class, () -> contaService.sacar(0, -1_000_000));
+        assertEquals(100, contaService.consultarSaldo(0).saldo());
+    }
+
+    @Test
+    void depositarComValorNegativoLancaExcecaoENaoDiminuiOSaldo() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        assertThrows(ValorInvalidoException.class, () -> contaService.depositar(0, -1_000_000));
+        assertEquals(100, contaService.consultarSaldo(0).saldo());
+    }
+
+    @Test
+    void criarContaSemIdLancaExcecaoClaraEmVezDeNullPointerException() {
+        assertThrows(DadosInvalidosException.class,
+                () -> contaService.criarConta(new CriarContaRequest(null, "Ana", 100L)));
     }
 }

@@ -7,6 +7,7 @@
 package br.pucminas.labdamd.iceibank.agencia.conta;
 
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.SaldoInsuficienteException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ValorInvalidoException;
 
 /**
  * Conta bancaria, guardada em memoria (sem persistencia neste sprint - se o
@@ -42,10 +43,16 @@ public class Conta {
     }
 
     public synchronized void depositar(long valor) {
+        if (valor <= 0) {
+            throw new ValorInvalidoException(valor);
+        }
         saldo += valor;
     }
 
     public synchronized void sacar(long valor) {
+        if (valor <= 0) {
+            throw new ValorInvalidoException(valor);
+        }
         if (saldo < valor) {
             throw new SaldoInsuficienteException(id);
         }

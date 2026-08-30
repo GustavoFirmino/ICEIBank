@@ -35,13 +35,14 @@ class EventLogServiceTest {
     @BeforeEach
     void configurar() throws IOException {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        Files.createDirectories(arquivoDeTeste.getParent());
+        Files.deleteIfExists(arquivoDeTeste); // precisa ser ANTES de construir (o construtor ja abre o arquivo)
         eventLogService = new EventLogService(AGENCIA_DE_TESTE, objectMapper);
-        eventLogService.garantirPastaDeDados();
-        Files.deleteIfExists(arquivoDeTeste);
     }
 
     @AfterEach
     void limpar() throws IOException {
+        eventLogService.fechar();
         Files.deleteIfExists(arquivoDeTeste);
     }
 

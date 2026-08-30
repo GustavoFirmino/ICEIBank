@@ -44,11 +44,22 @@ public class AuthController {
                     .body(new ErroResponse("Usuario ou senha invalidos."));
         }
 
-        long ttl = (ttlOverrideSeconds != null && jwtProperties.debugEndpointsEnabled())
-                ? ttlOverrideSeconds
-                : jwtProperties.expirationSeconds();
-
+        long ttl = resolverTtl(ttlOverrideSeconds);
         String token = jwtService.gerarToken(request.username(), ttl);
         return ResponseEntity.ok(new TokenResponse(token, ttl));
+    }
+
+    /**
+     * O override de debug so pode ENCURTAR a expiracao (nunca alonga-la
+     * alem do padrao configurado) - senao qualquer cliente poderia pedir
+     * um token praticamente eterno via ?ttlOverrideSeconds=999999999,
+     * o que anularia a propria politica de expiracao curta do JWT.
+     */
+    private long resolverTtl(Long ttlOverrideSeconds) {
+        long padrao = jwtProperties.expirationSeconds();
+        if (ttlOverrideSeconds == null || !jwtProperties.debugEndpointsEnabled()) {
+            return padrao;
+        }
+        return Math.min(Math.max(ttlOverrideSeconds, 1), padrao);
     }
 }

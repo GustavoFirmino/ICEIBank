@@ -8,6 +8,7 @@ package br.pucminas.labdamd.iceibank.agencia.transferencia;
 
 import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.AgenciaDestinoIndisponivelException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ComunicacaoAgenciaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
 import br.pucminas.labdamd.iceibank.agencia.config.AgenciaProperties;
 import br.pucminas.labdamd.iceibank.agencia.conta.Conta;
@@ -72,8 +73,14 @@ public class TransferenciaService {
         var contaDestino = contaRepository.buscar(idDestino);
         if (contaDestino.isEmpty()) {
             // conta de destino nao existe nesta (mesma) agencia - como e tudo
-            // local (mesma JVM), podemos desfazer o debito com seguranca.
+            // local (mesma JVM), podemos desfazer o debito com seguranca. Mas
+            // o estorno em si tambem precisa virar um evento (com seu proprio
+            // tick de Lamport) - senao o log mostra um debito sem contrapartida,
+            // como se o dinheiro tivesse sumido de verdade.
             contaOrigem.depositar(valor);
+            long tsEstorno = relogio.eventoLocal();
+            eventLog.registrar(TipoEvento.TRANSFERENCIA_REVERTIDA, tsEstorno, idOrigem,
+                    Map.of("idDestino", idDestino, "valor", valor, "motivo", "conta de destino nao encontrada"));
             throw new ContaNaoEncontradaException(idDestino);
         }
 
@@ -94,7 +101,10 @@ public class TransferenciaService {
         try {
             remoteBranchClient.creditarRemoto(agenciaDestino, idDestino, valor, tsEnvio, agenciaProperties.id());
             return new TransferenciaResponse("Transferencia concluida (entre agencias).");
-        } catch (RuntimeException erro) {
+        } catch (ComunicacaoAgenciaException erro) {
+            // Captura especificamente falha de COMUNICACAO (rede, timeout, resposta de
+            // erro) - nao RuntimeException generico, para nao mascarar um bug real
+            // (ex.: NullPointerException) como se fosse "agencia de destino indisponivel".
             // LIMITACAO CONHECIDA: o debito acima NAO e revertido - o dinheiro
             // "desaparece" temporariamente. Ver AgenciaDestinoIndisponivelException.
             log.warn("Falha ao contatar agencia {} para creditar conta {}: {}", agenciaDestino, idDestino, erro.getMessage());

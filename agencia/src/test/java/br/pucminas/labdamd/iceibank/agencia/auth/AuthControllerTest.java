@@ -52,4 +52,15 @@ class AuthControllerTest {
         assertNotNull(corpo);
         assertEquals(5, corpo.expiraEmSegundos());
     }
+
+    @Test
+    void ttlOverrideNaoConsegueUltrapassarOPadraoConfigurado() {
+        // Correcao apos revisao de codigo: sem o clamp, ?ttlOverrideSeconds=999999999
+        // geraria um token praticamente eterno, anulando a politica de expiracao curta.
+        ResponseEntity<?> resposta = controller.login(new LoginRequest("gustavo", "senha123"), 999_999_999L);
+
+        TokenResponse corpo = (TokenResponse) resposta.getBody();
+        assertNotNull(corpo);
+        assertEquals(300, corpo.expiraEmSegundos(), "o override so pode encurtar, nunca alongar, a expiracao padrao");
+    }
 }
