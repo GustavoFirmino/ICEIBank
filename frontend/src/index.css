@@ -235,3 +235,52 @@ h1, h2, h3 {
   color: #64748b;
   font-size: 0.85rem;
 }
+
+/* Pagina de referencia do design system (DesignSystemPage.jsx) - mais larga
+   que o container padrao de 480px porque mostra uma grade de amostras de
+   cor lado a lado, nao um formulario de coluna unica. */
+.container-largo {
+  max-width: 760px;
+}
+
+.grade-paleta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.amostra-cor {
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.amostra-cor-bloco {
+  height: 64px;
+}
+
+.amostra-cor-info {
+  padding: 0.75rem;
+}
+
+.amostra-cor-nome {
+  font-weight: 700;
+}
+
+.amostra-cor-uso {
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+.lista-simples {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.lista-simples li {
+  margin-bottom: 0.6rem;
+}
+
+.lista-simples li:last-child {
+  margin-bottom: 0;
+}

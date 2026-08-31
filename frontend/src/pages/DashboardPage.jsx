@@ -11,7 +11,7 @@ import { DepositoSaqueForm } from '../components/DepositoSaqueForm'
 import { TransferenciaForm } from '../components/TransferenciaForm'
 import { HistoricoList } from '../components/HistoricoList'
 
-export function DashboardPage() {
+export function DashboardPage({ aoAbrirDesignSystem }) {
   const [conta, setConta] = useState(null)
   const { username, logout } = useAuth()
   const { agencia } = useBranch()
@@ -29,9 +29,14 @@ export function DashboardPage() {
             {username} · conectado em {agencia.label}
           </div>
         </div>
-        <button className="link-sair" onClick={logout}>
-          Sair
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button className="link-sair" onClick={aoAbrirDesignSystem}>
+            Design system
+          </button>
+          <button className="link-sair" onClick={logout}>
+            Sair
+          </button>
+        </div>
       </div>
 
       <div className="cartao">
