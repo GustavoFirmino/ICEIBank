@@ -157,6 +157,6 @@ Conferido item a item contra a seção 13 do roteiro, a partir de um **clone lim
 - [x] Funcionalidades adicionais (duas): idempotência de transferências e histórico por conta — evidência: `funcionalidade-adicional.png`; commits próprios `feat(extra): ...`.
 - [x] Pasta `evidencias/sprint1/` com os 11 prints indicados nas seções 4.2, 2.1, 11.2 e 12.2 — todos gerados a partir de execuções reais, com `Get-Date` visível.
 - [x] `RESPOSTAS.md` com as questões das seções 6.4 (Parte B), 8.3 (Parte D), 10.3 (Parte E), 11.3 (Parte F) e 12.3 (Parte G), a descrição das funcionalidades adicionais e as justificativas de design das Partes F e G.
-- [ ] Vídeo de apresentação (critério 14, 2 pontos) — gravado à parte, fora do repositório.
+- [x] Vídeo de apresentação (critério 14, 2 pontos) — gravado em 07/09/2026 e publicado como asset da release [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1): [iceibank-sprint1-apresentacao.mp4](https://github.com/GustavoFirmino/ICEIBank/releases/download/v1.0-sprint1/iceibank-sprint1-apresentacao.mp4).
 
 **Declaração de uso de IA (nota de transparência do roteiro):** usei o Claude (Anthropic) como apoio para rascunhar, revisar e testar código e texto ao longo do sprint. Todo o código entregue foi executado e verificado por mim nesta máquina; consigo explicar e defender qualquer trecho.

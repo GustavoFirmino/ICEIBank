@@ -247,6 +247,10 @@ Abra `http://localhost:5173`, escolha a agência de entrada e faça login com `g
 | `npm run dev` falha com erro de sintaxe / `Unexpected token` | Node.js antigo | Instalar Node.js 20 LTS ou superior (`node --version`) |
 | Contas "sumiram" depois de reiniciar uma agência | Estado é em memória, por decisão do roteiro (Sprint 1 não tem banco) | Esperado — recriar as contas via API/frontend |
 
+## Vídeo de apresentação
+
+Funcionalidades e principais decisões do projeto (≈10 min), gravado em 07/09/2026: **[assistir / baixar](https://github.com/GustavoFirmino/ICEIBank/releases/download/v1.0-sprint1/iceibank-sprint1-apresentacao.mp4)** — publicado como asset da release [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1) (o arquivo passa do limite de 100 MB do Git, por isso não está dentro do repositório).
+
 ## Documentação
 
 - Respostas às perguntas de cada parte do roteiro, decisões de design (login, autenticação entre agências) e descrição das funcionalidades adicionais: [`RESPOSTAS.md`](RESPOSTAS.md).
