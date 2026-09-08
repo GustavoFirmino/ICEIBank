@@ -29,10 +29,11 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 
 ```
 ICEIBank/
-├── agencia/       Serviço Spring Boot (Java 17, Maven)
-├── frontend/      Interface web (React + Vite)
-├── evidencias/sprint1/   Prints de execução exigidos pelo roteiro
-├── RESPOSTAS.md   Respostas às perguntas de reflexão do roteiro
+├── agencia/               Serviço Spring Boot (Java 17) — inclui o Maven Wrapper (mvnw.cmd)
+├── frontend/              Interface web (React + Vite)
+├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro
+├── iniciar-agencias.ps1   Sobe as 3 agências em 3 janelas do PowerShell
+├── RESPOSTAS.md           Respostas às perguntas de reflexão do roteiro
 └── README.md
 ```
 
@@ -45,15 +46,31 @@ ICEIBank/
 | Agência 2 | 4049 |
 | Frontend (Vite, dev) | 5173 (padrão) |
 
+## Como clonar (leia antes — evita o erro `Filename too long`)
+
+Os pacotes Java do projeto geram caminhos longos, e o Git no Windows limita caminhos a 260 caracteres por padrão. Clonando dentro de pastas como `OneDrive\Área de Trabalho\...`, o `git clone` pode falhar com `error: unable to create file ...: Filename too long`. Clone assim (não precisa de permissão de administrador):
+
+```powershell
+git clone -c core.longpaths=true https://github.com/GustavoFirmino/ICEIBank.git
+```
+
+Se já clonou e deu o erro, rode dentro da pasta: `git config core.longpaths true` e depois `git restore --source=HEAD :/`.
+
 ## Como rodar o backend (3 agências)
 
-Pré-requisitos: JDK 17+, Maven 3.8+.
+Pré-requisito: **só o JDK 17 ou superior** (`java -version`). Maven **não** precisa estar instalado — o projeto inclui o Maven Wrapper (`agencia/mvnw.cmd`), que baixa a versão certa sozinho na primeira execução.
 
-> **Nota:** se o seu caminho de pasta tiver acento (ex.: "Área de Trabalho"), `mvn spring-boot:run` falha com `ClassNotFoundException` — é um bug conhecido do Maven/Java em lidar com caracteres acentuados no classpath no Windows. A solução é empacotar o `.jar` e rodá-lo diretamente com `java -jar`, que não tem esse problema.
+**Jeito rápido (abre as 3 agências em 3 janelas do PowerShell):**
+
+```powershell
+.\iniciar-agencias.ps1
+```
+
+**Jeito manual:**
 
 ```powershell
 cd agencia
-mvn -q package -DskipTests
+.\mvnw.cmd -q -DskipTests package
 
 # Terminal 1
 java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia0
@@ -65,7 +82,14 @@ java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia1
 java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia2
 ```
 
-Se seu caminho **não** tiver acentos, `mvn spring-boot:run -Dspring-boot.run.profiles=agencia0` também funciona normalmente.
+> **Por que `java -jar` e não `spring-boot:run`?** Se o caminho da pasta tiver acento (ex.: "Área de Trabalho"), `mvnw spring-boot:run` falha com `ClassNotFoundException` — bug conhecido do Maven/Java com caracteres acentuados no classpath no Windows. O `.jar` empacotado não tem esse problema. Se o seu caminho **não** tiver acentos, `.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=agencia0` também funciona.
+
+**Credenciais de demonstração** (definidas em `agencia/src/main/resources/application.yml`, iguais nas 3 agências):
+
+| Usuário | Senha |
+|---|---|
+| `gustavo` | `senha123` |
+| `aluno` | `senha123` |
 
 ## Como rodar o script de linha do tempo unificada
 
@@ -73,7 +97,7 @@ Com as 3 agências já tendo gerado eventos (pasta `agencia/data/*.jsonl`):
 
 ```powershell
 cd agencia
-mvn -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.ferramentas.MesclarLogs"
+.\mvnw.cmd -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.ferramentas.MesclarLogs"
 ```
 
 ## Endpoints da API
@@ -116,9 +140,24 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`, escolha a agência de entrada e faça login com um dos usuários de demonstração (ver `agencia/src/main/resources/application.yml`).
+Abra `http://localhost:5173`, escolha a agência de entrada e faça login com `gustavo` / `senha123` (ou `aluno` / `senha123`). As 3 agências precisam estar no ar antes — o frontend só conversa com a API.
+
+## Rodando em outro computador (laboratório): problemas comuns
+
+| Sintoma | Causa | O que fazer |
+|---|---|---|
+| `git clone` falha com `Filename too long` | Limite de 260 caracteres de caminho do Git no Windows | Clonar com `git clone -c core.longpaths=true <url>` (ver seção "Como clonar") |
+| `'mvn' não é reconhecido como um comando` | Maven não instalado | Não precisa instalar: use `.\mvnw.cmd` no lugar de `mvn` (Maven Wrapper incluso) |
+| `.\mvnw.cmd` demora muito na primeira vez | Está baixando o Maven e as dependências do projeto (~100 MB) | Normal; só na primeira execução. Precisa de internet |
+| Erro de compilação `release version 17 not supported` / `invalid target release: 17` | JDK antigo (8 ou 11) | Instalar JDK 17+ e confirmar com `java -version` em um terminal **novo** |
+| `ClassNotFoundException` ao usar `spring-boot:run` | Caminho da pasta com acento | Usar `java -jar target/agencia-1.0.0.jar ...` (ver "Como rodar o backend") |
+| `Web server failed to start. Port 4047 was already in use` | Outra instância da agência (ou outro programa) já usa a porta | Fechar a janela antiga, ou `Get-NetTCPConnection -LocalPort 4047 \| Select OwningProcess` e encerrar o processo |
+| Firewall do Windows pede permissão ao subir a agência | Primeira execução de um servidor Java na máquina | Clicar em "Permitir acesso" |
+| Frontend abre, mas login dá "Falha de rede" / erro de CORS | Agências não estão no ar, ou o frontend está em outra porta que não `5173` | Subir as 3 agências primeiro; manter o Vite na porta padrão (o CORS do backend libera só `http://localhost:5173`) |
+| `npm run dev` falha com erro de sintaxe / `Unexpected token` | Node.js antigo | Instalar Node.js 20 LTS ou superior (`node --version`) |
+| Contas "sumiram" depois de reiniciar uma agência | Estado é em memória, por decisão do roteiro (Sprint 1 não tem banco) | Esperado — recriar as contas via API/frontend |
 
 ## Documentação
 
 - Respostas às perguntas de cada parte do roteiro, decisões de design (login, autenticação entre agências) e descrição das funcionalidades adicionais: [`RESPOSTAS.md`](RESPOSTAS.md).
-- Evidências de execução: [`evidencias/sprint1/`](evidencias/sprint1).
+- Evidências de execução: [`evidencias/sprint1/`](evidencias/sprint1). Os prints de API/terminal foram gerados a partir da **saída real** dos comandos (executados contra as 3 agências rodando, com `Get-Date` no início de cada um) e os do frontend a partir do app React rodando de verdade — nenhum resultado foi editado ou montado à mão.
