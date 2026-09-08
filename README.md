@@ -33,6 +33,8 @@ ICEIBank/
 ├── frontend/              Interface web (React + Vite)
 ├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro
 ├── iniciar-agencias.ps1   Sobe as 3 agências em 3 janelas do PowerShell
+├── linha-do-tempo.ps1     Roda o MesclarLogs (Parte E) direto do .jar
+├── demo-auth.ps1          Mostra os 3 cenários de JWT da Parte F (sem token / válido / expirado)
 ├── RESPOSTAS.md           Respostas às perguntas de reflexão do roteiro
 └── README.md
 ```
@@ -113,13 +115,18 @@ curl -s -X POST http://localhost:4047/contas -H "Content-Type: application/json"
 
 Conta 0 e 3 → Agência 0 (porta 4047); conta 1 → Agência 1 (4048); conta 2 → Agência 2 (4049). Agora, no frontend: consulte a conta 0, faça depósito/saque, transfira 0 → 3 (local) e 0 → 1 (entre agências), e tente sacar mais do que o saldo para ver o erro.
 
-**Passo 6 — linha do tempo de Lamport** (depois de gerar alguns eventos):
+**Passo 6 — linha do tempo de Lamport** (depois de gerar alguns eventos), na raiz do repositório:
 
 ```powershell
-cd agencia
-.\mvnw.cmd -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.ferramentas.MesclarLogs"
+.\linha-do-tempo.ps1
 ```
-*(Git Bash: `./mvnw` no lugar de `.\mvnw.cmd`.)*
+*(Git Bash: `cd agencia && ./mvnw -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.ferramentas.MesclarLogs"` — as aspas em volta do `-Dexec...` são obrigatórias.)*
+
+**Passo 7 — os 3 cenários de autenticação (Parte F)** de uma vez, na raiz do repositório:
+
+```powershell
+.\demo-auth.ps1
+```
 
 **Para parar tudo:** feche as janelas das agências (ou `Ctrl+C` em cada uma) e `Ctrl+C` no terminal do frontend.
 
@@ -170,7 +177,13 @@ java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia2
 
 ## Como rodar o script de linha do tempo unificada
 
-Com as 3 agências já tendo gerado eventos (pasta `agencia/data/*.jsonl`):
+Com as 3 agências já tendo gerado eventos (pasta `agencia/data/*.jsonl`), na raiz do repositório:
+
+```powershell
+.\linha-do-tempo.ps1
+```
+
+O script roda a classe `MesclarLogs` direto do `.jar` empacotado (via `PropertiesLauncher` do Spring Boot), sem passar pelo Maven. O caminho "manual", via Maven, também funciona — atenção às aspas em volta do `-D...`, sem elas o PowerShell quebra o argumento no ponto:
 
 ```powershell
 cd agencia
