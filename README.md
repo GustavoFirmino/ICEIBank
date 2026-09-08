@@ -46,6 +46,83 @@ ICEIBank/
 | Agência 2 | 4049 |
 | Frontend (Vite, dev) | 5173 (padrão) |
 
+## Passo a passo completo (do zero até o frontend aberto)
+
+Todos os comandos abaixo são para o **PowerShell** (o terminal padrão do Windows — abra pelo menu Iniciar digitando "PowerShell"; não precisa ser como administrador). Se preferir o **Git Bash**, as diferenças estão indicadas em cada passo.
+
+**Passo 1 — clonar** (em qualquer pasta, de preferência curta e sem acento, ex.: `C:\dev`):
+
+```powershell
+git clone -c core.longpaths=true https://github.com/GustavoFirmino/ICEIBank.git
+cd ICEIBank
+```
+*(Git Bash: mesmos comandos.)*
+
+**Passo 2 — conferir os pré-requisitos** (precisa aparecer Java 17 ou superior e Node 20 ou superior):
+
+```powershell
+java -version
+node --version
+```
+*(Git Bash: mesmos comandos.)* Se `java` não for encontrado, instale um JDK 17+ e **abra um terminal novo** depois de instalar.
+
+**Passo 3 — subir as 3 agências** (abre 3 janelas do PowerShell, uma por agência; na primeira vez demora alguns minutos baixando o Maven e as dependências):
+
+```powershell
+.\iniciar-agencias.ps1
+```
+Se o PowerShell reclamar de "execução de scripts desabilitada", rode antes, no mesmo terminal: `Set-ExecutionPolicy -Scope Process Bypass` (vale só para essa janela).
+
+*(Git Bash: o script é PowerShell — use o jeito manual, em 3 terminais separados:)*
+```bash
+cd agencia && ./mvnw -q -DskipTests package
+java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia0   # terminal 1
+java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia1   # terminal 2
+java -jar target/agencia-1.0.0.jar --spring.profiles.active=agencia2   # terminal 3
+```
+
+Espere cada janela mostrar `Started AgenciaApplication`. Se o Firewall do Windows perguntar, clique em "Permitir acesso".
+
+**Passo 4 — subir o frontend** (em um 4º terminal, na raiz do repositório):
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+*(Git Bash: mesmos comandos.)* Abra `http://localhost:5173`, deixe "Agência 0" selecionada e entre com `gustavo` / `senha123`.
+
+**Passo 5 — criar contas para testar** (o estado é em memória: toda vez que as agências sobem, começa vazio). Pelo frontend não dá para criar conta (não é requisito do roteiro), então crie pela API, em um 5º terminal:
+
+```powershell
+$token = (Invoke-RestMethod -Uri "http://localhost:4047/auth/login" -Method Post -ContentType "application/json" -Body '{"username":"gustavo","password":"senha123"}').token
+$h = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri "http://localhost:4047/contas" -Method Post -ContentType "application/json" -Headers $h -Body '{"id":0,"titular":"Ana","saldoInicial":1000}'
+Invoke-RestMethod -Uri "http://localhost:4048/contas" -Method Post -ContentType "application/json" -Headers $h -Body '{"id":1,"titular":"Bruno","saldoInicial":500}'
+Invoke-RestMethod -Uri "http://localhost:4049/contas" -Method Post -ContentType "application/json" -Headers $h -Body '{"id":2,"titular":"Carla","saldoInicial":300}'
+Invoke-RestMethod -Uri "http://localhost:4047/contas" -Method Post -ContentType "application/json" -Headers $h -Body '{"id":3,"titular":"Davi","saldoInicial":200}'
+```
+*(Git Bash, com curl:)*
+```bash
+TOKEN=$(curl -s -X POST http://localhost:4047/auth/login -H "Content-Type: application/json" -d '{"username":"gustavo","password":"senha123"}' | sed 's/.*"token":"\([^"]*\)".*/\1/')
+curl -s -X POST http://localhost:4047/contas -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"id":0,"titular":"Ana","saldoInicial":1000}'
+curl -s -X POST http://localhost:4048/contas -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"id":1,"titular":"Bruno","saldoInicial":500}'
+curl -s -X POST http://localhost:4049/contas -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"id":2,"titular":"Carla","saldoInicial":300}'
+curl -s -X POST http://localhost:4047/contas -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"id":3,"titular":"Davi","saldoInicial":200}'
+```
+
+Conta 0 e 3 → Agência 0 (porta 4047); conta 1 → Agência 1 (4048); conta 2 → Agência 2 (4049). Agora, no frontend: consulte a conta 0, faça depósito/saque, transfira 0 → 3 (local) e 0 → 1 (entre agências), e tente sacar mais do que o saldo para ver o erro.
+
+**Passo 6 — linha do tempo de Lamport** (depois de gerar alguns eventos):
+
+```powershell
+cd agencia
+.\mvnw.cmd -q compile exec:java "-Dexec.mainClass=br.pucminas.labdamd.iceibank.agencia.ferramentas.MesclarLogs"
+```
+*(Git Bash: `./mvnw` no lugar de `.\mvnw.cmd`.)*
+
+**Para parar tudo:** feche as janelas das agências (ou `Ctrl+C` em cada uma) e `Ctrl+C` no terminal do frontend.
+
 ## Como clonar (leia antes — evita o erro `Filename too long`)
 
 Os pacotes Java do projeto geram caminhos longos, e o Git no Windows limita caminhos a 260 caracteres por padrão. Clonando dentro de pastas como `OneDrive\Área de Trabalho\...`, o `git clone` pode falhar com `error: unable to create file ...: Filename too long`. Clone assim (não precisa de permissão de administrador):
