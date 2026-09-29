@@ -31,3 +31,19 @@ cors:
 server:
   error:
     include-message: always
+
+# --- Sprint 2: RabbitMQ (mensageria) ----------------------------------------
+# A URL AMQP vem da variavel de ambiente RABBITMQ_URL (CloudAMQP:
+# amqps://usuario:senha@host.cloudamqp.com/vhost). Sem a variavel, usa o
+# RabbitMQ local do Docker (.\iniciar-rabbitmq.ps1). Igual nas 3 agencias.
+spring:
+  rabbitmq:
+    uri: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672/}
+    # confirmacao do broker: "publicada" so vale depois que o RabbitMQ aceitou a mensagem
+    publisher-confirm-type: correlated
+    listener:
+      simple:
+        # mensagem rejeitada NAO volta para a fila (evita loop infinito) - vai para a dead-letter queue
+        default-requeue-rejected: false
+        missing-queues-fatal: false
+
