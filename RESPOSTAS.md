@@ -1,3 +1,7 @@
+# Respostas — ICEIBank
+
+> **Índice:** [Sprint 1](#respostas--iceibank-sprint-1) (este documento, primeira parte) · [Sprint 2 — mensageria e relógio vetorial](#respostas--iceibank-sprint-2) (a partir da metade do arquivo) · [Fluxo de Execução (Sprint 2)](FLUXO-DE-EXECUCAO.md)
+
 # Respostas — ICEIBank, Sprint 1
 
 **Aluno:** Gustavo Pessoa Firmino Duarte
@@ -160,3 +164,126 @@ Conferido item a item contra a seção 13 do roteiro, a partir de um **clone lim
 - [x] Vídeo de apresentação (critério 14, 2 pontos) — gravado em 07/09/2026 e publicado como asset da release [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1): [iceibank-sprint1-apresentacao.mp4](https://github.com/GustavoFirmino/ICEIBank/releases/download/v1.0-sprint1/iceibank-sprint1-apresentacao.mp4).
 
 **Declaração de uso de IA (nota de transparência do roteiro):** usei o Claude (Anthropic) como apoio para rascunhar, revisar e testar código e texto ao longo do sprint. Todo o código entregue foi executado e verificado por mim nesta máquina; consigo explicar e defender qualquer trecho.
+
+
+---
+---
+
+# Respostas — ICEIBank, Sprint 2
+
+**Tema:** comunicação indireta (mensageria / Publish-Subscribe com RabbitMQ) e relógio vetorial. Este sprint evolui o código do Sprint 1 no mesmo repositório (o estado do Sprint 1 está preservado na release [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1)).
+
+**Ambiente usado nas execuções:** RabbitMQ 4.3.6 (Erlang 27) em container Docker local (`.\iniciar-rabbitmq.ps1`) — o roteiro permite `RABBITMQ_URL=amqp://localhost` no lugar do CloudAMQP (a aplicação lê a URL da variável de ambiente e funciona igual nos dois casos). 3 agências reais (portas 4047–4049), Spring AMQP, **110 testes automatizados** passando. Todas as evidências de [`evidencias/sprint2/`](evidencias/sprint2) são a saída real dos comandos; a atividade de recapitulação do sprint está respondida em [`FLUXO-DE-EXECUCAO.md`](FLUXO-DE-EXECUCAO.md).
+
+## Parte A — RabbitMQ
+
+Topologia criada pelas próprias agências ao subir (conferida no painel do RabbitMQ Manager — [`rabbitmq-manager-filas.png`](evidencias/sprint2/rabbitmq-manager-filas.png), [`rabbitmq-manager-exchange.png`](evidencias/sprint2/rabbitmq-manager-exchange.png)):
+
+| Item | Valor |
+|---|---|
+| exchange | `iceibank.eventos`, tipo **topic**, **durável** |
+| filas | `fila-agencia-0/1/2`, **duráveis**, ligadas por `agencia.<id>.creditar` |
+| dead-letter (funcionalidade adicional) | exchange `iceibank.eventos.dlx` → fila `fila-creditos-mortos` |
+| mensagens | JSON, `delivery_mode = persistent` (gravadas em disco), com *publisher confirm* |
+
+**Onde diverge do exemplo em Node do roteiro (e por quê):** (1) Spring AMQP no lugar de `amqplib` (o roteiro manda usar a mesma linguagem do Sprint 1 — Java); (2) **todas** as agências declaram **as três filas**, não só a sua — declarar é idempotente, e assim uma mensagem para uma agência que ainda nunca subiu fica retida em vez de ser descartada por "nenhuma fila ligada"; (3) a publicação só vale depois do *publisher confirm* (no exemplo, `publish()` volta na hora e "publicada" não provaria nada); (4) cada mensagem carrega um `idMensagem` único.
+
+## Parte B — Relógio vetorial
+
+O `RelogioVetorialService` substitui o `LamportClockService`: vetor com **uma posição por agência**, três regras, todos os métodos `synchronized` (o vetor é compartilhado entre as threads HTTP do Tomcat e as do consumidor RabbitMQ) e devolvendo **cópias imutáveis** (o vetor gravado em um evento nunca muda depois). O log de eventos, o histórico por conta e o frontend passaram a carregar `timestampVetorial`. Testes: as 3 regras, os exemplos abaixo e 8 threads × 1000 operações sem perder nenhum incremento.
+
+**1. Com 3 agências o vetor tem 3 posições. Com 10, o que acontece com o tamanho do vetor anexado a cada mensagem? É um problema?**
+
+O vetor cresce **linearmente com o número de processos**: com 10 agências, cada mensagem carrega 10 contadores (e cada comparação percorre 10 posições); com 1000, seriam 1000 contadores em toda mensagem e em todo evento gravado. Para 3 ou 10 agências **não é problema** — são alguns bytes no meio de uma mensagem JSON de ~150 bytes. Passa a ser um problema quando o número de processos é grande ou **dinâmico**: (a) o overhead por mensagem/evento escala com *N*; (b) o vetor precisa saber de antemão **quem são** os participantes (uma agência nova exige redimensionar todos os vetores existentes). Aqui a posição é por **agência**, não por conta — então o vetor cresce com o nº de agências, não de contas, o que ajuda. Em escala, usam-se variações (relógios de versão/*dotted version vectors*, *interval tree clocks*, ou relógios híbridos com custo constante) trocando um pouco de precisão por tamanho.
+
+**2. `V1 = [3,1,0]` e `V2 = [3,2,0]`: qual aconteceu primeiro, ou são concorrentes?**
+
+Comparando posição a posição: `3 ≤ 3`, `1 ≤ 2`, `0 ≤ 0` — **`V1 ≤ V2` em toda posição** e os vetores são diferentes. Logo, **o evento de `V1` aconteceu antes** do de `V2` (e pode tê-lo influenciado): tudo o que `V1` "conhece" `V2` também conhece, e `V2` conhece mais um evento da agência 1. (Coberto por `VetoresTest.pergunta642…`.)
+
+**3. `V1 = [3,1,0]` e `V2 = [1,3,0]`: qual aconteceu primeiro, ou são concorrentes?**
+
+Posição 0: `3 > 1` → `V1` **não** é `≤ V2`. Posição 1: `1 < 3` → `V2` **não** é `≤ V1`. Como **nenhum domina o outro**, os eventos são **concorrentes**: nenhum influenciou o outro (cada um conhece eventos que o outro desconhece — `V1` viu 3 eventos da agência 0 e `V2` só 1; `V2` viu 3 da agência 1 e `V1` só 1). (`VetoresTest.pergunta643…`.) Um caso real da execução: a criação da conta 0 na Agência 0 (`[1,0,0]`) e a da conta 1 na Agência 1 (`[0,1,0]`) — concorrentes.
+
+## Parte C — Publish/Subscribe entre agências
+
+**Observações da tarefa 7.4 (execução real).**
+
+1. *Transferência normal, ambas no ar* — 0 → 1, valor 30: saldos 1000 → 970 e 500 → 530. Log da origem: `TRANSFERENCIA_DEBITO [2,0,0]` e `TRANSFERENCIA_PUBLICADA [3,0,0]`; log do destino: `TRANSFERENCIA_CREDITO_REMOTO [3,2,0]` — a Agência 1 estava em `[0,1,0]`, recebeu `[3,0,0]`, `max` = `[3,1,0]`, +1 na própria posição = `[3,2,0]` (regra 3). → [`transferencia-assincrona.png`](evidencias/sprint2/transferencia-assincrona.png)
+2. *Teste de resiliência* — com a Agência 1 derrubada, a transferência para uma conta dela (valor 200) **respondeu 200**; a mensagem ficou **retida** na `fila-agencia-1` (1 pronta, 0 consumidores).
+3. *A Agência 1 volta* — reiniciou **sem a conta 1** (as contas são em memória). O log mostra `CREDITO_REMOTO_FALHOU [5,1,0]` (motivo: conta não encontrada nesta agência). A mensagem **foi entregue**, mas a conta **não existia** para receber o crédito. → [`resiliencia-fila.png`](evidencias/sprint2/resiliencia-fila.png)
+4. *JWT e frontend continuam funcionando* — [`regressao-jwt.png`](evidencias/sprint2/regressao-jwt.png), [`regressao-frontend-transferencia.png`](evidencias/sprint2/regressao-frontend-transferencia.png) e [`regressao-frontend-saldo-destino.png`](evidencias/sprint2/regressao-frontend-saldo-destino.png).
+
+**1. No passo 4, o que aconteceu exatamente quando a Agência 1 voltou? Se a mensagem "sumiu" (não foi aplicada), foi porque a mensageria falhou ou por outro motivo?**
+
+**A mensageria não falhou — ela fez exatamente o que promete.** Sequência: a Agência 1 reconecta → o RabbitMQ entrega a mensagem que estava retida na fila durável (`vetorEnvio [5,0,0]`) → o consumidor chama `aoReceber` (o vetor da agência vira `[5,1,0]`: receber já é um evento) → tenta creditar a conta 1 → **a conta não existe** (a agência reiniciou e perdeu as contas em memória) → `CREDITO_REMOTO_FALHOU`. O motivo é o **estado** (contas em memória), não o transporte: entre "a mensagem chegou" e "o crédito foi aplicado" há uma lacuna que a mensageria não cobre. Vale notar que, **no exemplo em Node do roteiro**, o consumidor só registra o erro e dá `ack` — a mensagem seria confirmada e descartada, e o dinheiro sumiria **em silêncio** (débito de 200 na origem, crédito em lugar nenhum). Na minha implementação a mensagem é **rejeitada sem reentrega** e o RabbitMQ a encaminha para a **dead-letter queue** (`x-death: rejected`, fila original `fila-agencia-1`), retida **com todos os dados**, de onde pode ser reprocessada — ver "Funcionalidade adicional".
+
+**2. Compare com o Sprint 1 (REST direto): o que melhorou e o que continua sendo um problema em aberto?**
+
+*Melhorou:* (a) a agência de destino fora do ar **deixou de ser um erro** — a mensagem espera na fila durável (Sprint 1: 502 na hora e débito pendurado, sem nada guardado); (b) **desacoplamento temporal** — origem e destino não precisam estar no ar ao mesmo tempo, e a thread HTTP da origem não fica bloqueada esperando o destino; (c) o *publisher confirm* dá certeza de que o broker aceitou; (d) se o **broker** cair, o débito é **estornado** e a transferência falha com 503 (o Sprint 1 deixava o débito pendurado) — verificado, [`broker-fora-do-ar.png`](evidencias/sprint2/broker-fora-do-ar.png); (e) o consumidor é idempotente por `idMensagem` (entrega duplicada não duplica crédito) — [`entrega-duplicada.png`](evidencias/sprint2/entrega-duplicada.png).
+
+*Continua em aberto* — a diferença entre **"a mensagem não se perde"** e **"o sistema está correto"**: (1) enquanto o crédito não é aplicado (ex.: mensagem na dead-letter), o dinheiro está **debitado e não creditado** — a consistência é apenas *eventual*, e só se alguém reprocessar; (2) **débito local + publicação não são atômicos** — uma queda entre os dois perde a mensagem (o padrão *outbox* resolveria); (3) o estado é em memória: o conjunto de `idMensagem` já aplicados some no restart (com banco, o "já apliquei" teria que ser gravado na **mesma transação** do crédito — padrão *inbox*); (4) o significado do 200 mudou ("o broker aceitou", não "o crédito foi aplicado") e o cliente não tem confirmação do crédito (uma `TransferenciaConfirmada` fecharia o ciclo); (5) o dinheiro "em trânsito" some das somas de saldo por um instante. Garantir atomicidade entre agências é o Sprint 4 (2PC/Saga).
+
+**3. O consumidor processa créditos sem passar por verificação de token JWT. Isso é um problema de segurança?**
+
+**Sim, é uma superfície real — mas o JWT não é a ferramenta certa para fechá-la.** O JWT autentica **usuários da API HTTP**; o consumidor não recebe requisições HTTP, ele consome mensagens que o broker já aceitou. A fronteira de confiança ali é a **credencial do RabbitMQ**: quem consegue publicar na exchange `iceibank.eventos` com a routing key `agencia.1.creditar` consegue **criar dinheiro** em qualquer conta daquela agência. Eu **provei isso** na execução: em [`entrega-duplicada.png`](evidencias/sprint2/entrega-duplicada.png) publiquei uma mensagem **direto no RabbitMQ**, sem nenhum token, e ela creditou a conta. No meu ambiente de desenvolvimento, quem pode publicar é qualquer processo com a credencial `guest/guest` que consiga alcançar a porta 5672. **Verifiquei** que, na imagem oficial do RabbitMQ em Docker, o `guest` é aceito de **qualquer origem** (`loopback_users = []`) — e a primeira versão do meu script publicava as portas em `0.0.0.0`, o que numa rede de laboratório permitiria a qualquer máquina publicar mensagens. Corrigi: `iniciar-rabbitmq.ps1` agora publica as portas só em `127.0.0.1` (e recria um container antigo que estivesse aberto). Com o CloudAMQP, a URL AMQP dá acesso de qualquer lugar a quem a tiver. Mitigações reais: um **usuário por agência** com permissões mínimas (só publicar na exchange e ler a própria fila, com *topic permissions*), **TLS** (`amqps://`), a URL só em variável de ambiente (nunca no repositório — o `application.yml` só tem o padrão local), **vhosts** separados por ambiente e **assinar a mensagem** (HMAC com uma chave por agência de origem, verificada pelo consumidor) além de validar invariantes de negócio. Para o escopo deste sprint (ambiente local, sem dado real) é aceitável, mas não é algo a levar para produção como está.
+
+## Parte D — Linha do tempo causal
+
+O `MesclarLogs` (`.\linha-do-tempo.ps1`) agora imprime três seções: (1) a linha do tempo por hora de parede (**só exibição**); (2) os **pares concorrentes** entre agências diferentes (nenhum vetor domina o outro); (3) os **pares causais envio → recebimento**, ligados pelo `idMensagem`, com a relação **calculada** pelos vetores — que deve ser `ANTES`. → [`linha-do-tempo-causal.png`](evidencias/sprint2/linha-do-tempo-causal.png): 8 eventos, 10 pares concorrentes e o par causal `PUBLICADA [3,0,0] → CREDITO_REMOTO [3,2,0]` verificado como `ANTES` (e **ausente** da lista de concorrentes, como pede a tarefa).
+
+**1. No Sprint 1, o Lamport não permitia essa análise. O que, no relógio vetorial, torna possível a comparação confiável?**
+
+O vetor guarda **um contador por processo**, então um timestamp carrega **"quantos eventos de cada agência eu conheço"** — a *história causal* resumida. `V1 ≤ V2` em todas as posições significa exatamente "tudo o que o evento 1 conhecia, o evento 2 também conhece" — e isso vale **se e somente se** o evento 1 aconteceu antes do 2 (`e → f ⇔ V(e) < V(f)`). No Lamport, um único número **mistura** os processos e perde *de quem* eram os eventos vistos: garante só `e → f ⇒ L(e) < L(f)` (uma direção), então dois timestamps diferentes podem ser causais **ou** concorrentes. Um exemplo do próprio Sprint 1: as três criações de conta tinham todas o timestamp Lamport **1** — impossível provar que eram concorrentes; agora são `[1,0,0]`, `[0,1,0]` e `[0,0,1]`, e nenhum domina o outro.
+
+**2. Um par que o script classificou como concorrente. Faz sentido?**
+
+`#2 agencia-1 CRIACAO_CONTA [0,1,0]  ||  #4 agencia-0 TRANSFERENCIA_DEBITO [2,0,0]`. Faz sentido: criar a conta do Bruno na Agência 1 e debitar a conta da Ana na Agência 0 **não têm relação de causa e efeito** — nenhuma mensagem foi trocada entre as duas agências até ali (o vetor `[0,1,0]` tem a posição 0 zerada: a Agência 1 não conhece **nenhum** evento da Agência 0; e o `[2,0,0]` tem a posição 1 zerada: a Agência 0 não conhece nenhum da 1). Curiosamente, pela **hora de parede** a criação vem *antes* do débito — mas isso **não** implica causalidade: são independentes, e é exatamente isso que o vetor prova e o relógio físico não pode provar (relógios de máquinas diferentes não são sincronizados). Já o par débito `[2,0,0]` → crédito `[3,2,0]` **não** aparece na lista: `[2,0,0] ≤ [3,2,0]` em todas as posições, então o débito foi **antes** do crédito (causal).
+
+**3. O algoritmo é O(n²) no número de eventos. É um problema com milhões de eventos? O que fazer para escalar?**
+
+**É um problema:** com 10⁶ eventos são ~5·10¹¹ comparações de vetores — inviável. Formas de melhorar: (a) **só comparar entre agências diferentes** (já faço — na mesma agência os eventos são totalmente ordenados pelo contador próprio); (b) usar a propriedade de Fidge/Mattern: para dois eventos em processos diferentes, `e → f` se decide comparando **uma única posição** (`V(e)[i] ≤ V(f)[i]`, com *i* = processo de *e*), em O(1) em vez de O(N); (c) como os eventos de cada agência são **monotônicos**, dá para achar, por *busca binária*, o primeiro evento de cada outra agência que "conhece" um dado evento — reduzindo a análise a ~O(n log n); (d) análise **sob demanda** ("quem é concorrente de X?" = O(n)) em vez de todos os pares; (e) **janelas/checkpoints** (cortes consistentes) para não comparar eventos muito distantes no tempo; (f) particionar por conta/dia e processar em paralelo (map-reduce) ou em *stream*. Na prática, sistemas grandes não fazem análise de pares completa: usam o vetor só onde há risco de conflito.
+
+## Funcionalidade adicional — dead-letter queue com inspeção e reprocessamento (seção 2.1)
+
+**O que faz.** Um crédito que a agência de destino **não consegue aplicar** (o caso da Parte C: a agência reiniciou e perdeu as contas em memória) não é confirmado nem reentregue em loop: é **rejeitado sem reentrega** e o RabbitMQ o encaminha para a dead-letter queue `fila-creditos-mortos`, **retido com todos os dados**. Duas rotas novas (protegidas por JWT):
+
+- `GET /mensagens-mortas` — lista os créditos retidos cuja conta de destino é **desta** agência;
+- `POST /mensagens-mortas/reprocessar` — republica esses créditos na exchange. Só saem da dead-letter **depois do *publisher confirm*** (se a republicação falhar, continuam lá); se a conta ainda não existir, o consumidor os rejeita de novo e eles voltam para a fila (**reprocessar é seguro de repetir**); o `idMensagem` original é mantido (o consumidor continua deduplicando) e cada reprocessamento vira um evento local `CREDITO_REMOTO_REPROCESSADO` no log.
+
+**Por que escolhi.** Das opções do roteiro, é a que fecha exatamente o problema que o próprio sprint pede para observar (Parte C, pergunta 1): sem ela, o dinheiro de uma mensagem que "chegou mas não achou a conta" some em silêncio; com ela, fica retido e **recuperável**.
+
+**Evidência** — [`funcionalidade-adicional.png`](evidencias/sprint2/funcionalidade-adicional.png): `GET` lista a mensagem de 200; o 1º reprocessamento (sem a conta) a republica e ela **volta** para a fila; a conta 1 é recriada (500); o 2º reprocessamento a aplica — saldo **500 → 700** e a dead-letter fica vazia. Em [`ordem-invertida.png`](evidencias/sprint2/ordem-invertida.png) ela é usada em um cenário de duas transferências independentes.
+
+**O que a execução real revelou (e foi corrigido):** o 1º reprocessamento devolveu `reprocessadas: 2` para uma única mensagem — a republicada era rejeitada de novo e voltava à mesma fila **enquanto o laço ainda lia**, e o laço a pegava outra vez (em teoria, até o limite de 500). Corrigido para percorrer só o que estava na fila no início (commit `7fae66b`). Também: o evento de reprocessamento agora tem o vetor tomado **antes** de publicar (o consumidor, em outra thread, pode aplicar o crédito antes de a thread voltar de `publicar()`).
+
+**Limitações:** lista/reprocessa no máximo 500 mensagens por chamada; só as da própria agência; o reprocessamento é **manual** (não há retentativa automática com *backoff*); e qualquer usuário autenticado pode chamá-lo (não há autorização por papel — mesma lacuna auth × autorização do Sprint 1).
+
+**Além do mínimo (comportamentos novos, também com testes):** consumidor **idempotente** por `idMensagem`; **estorno do débito** quando o broker recusa a mensagem (503) e falha **retentável** (o mesmo `idOperacao` pode ser reenviado depois que o broker volta); rota inexistente devolve 404 (antes, com token, devolvia 403).
+
+## Continuidade do Sprint 1 e decisões que mudaram
+
+| Item | Estado |
+|---|---|
+| Particionamento (`id % 3`) | igual — cada agência recusa contas que não são dela |
+| JWT | igual e verificado por regressão ([`regressao-jwt.png`](evidencias/sprint2/regressao-jwt.png)): 401 sem token, 200 com token, 401 com token expirado |
+| Frontend | continua funcionando ([`regressao-frontend-*.png`](evidencias/sprint2)); o histórico exibe o vetor no lugar do Lamport; a mensagem da transferência entre agências agora diz "publicada (entrega assíncrona)" |
+| Idempotência por `idOperacao` e histórico por conta (extras do Sprint 1) | mantidos |
+| **Justificativa da Parte F do Sprint 1 sobre a chave `X-Internal-Key`** | **superada:** a rota REST `creditar-remoto` e a chave interna foram **removidas** — o crédito entre agências chega por mensageria. A fronteira de confiança agora é a credencial do RabbitMQ (ver Parte C, pergunta 3) |
+| Limitação conhecida do Sprint 1 (débito pendurado quando o destino falha) | **em parte resolvida** (destino fora do ar deixou de ser erro; broker fora do ar estorna) e **em parte adiada** (atomicidade real → Sprint 4) |
+
+## Checklist final de entrega (seção 10 do roteiro)
+
+Conferido item a item a partir de um **clone limpo** do repositório (`git clone` → `mvnw package` com os testes → `npm ci && npm run build`):
+
+- [x] RabbitMQ rodando, exchange `iceibank.eventos` (topic) e 3 filas (uma por agência) configuradas — Parte A; [`rabbitmq-manager-filas.png`](evidencias/sprint2/rabbitmq-manager-filas.png)
+- [x] Relógio vetorial substituindo o de Lamport, com as três regras — Parte B; `RelogioVetorialService` + testes
+- [x] Transferência entre agências publicada como mensagem e consumida de forma assíncrona — [`transferencia-assincrona.png`](evidencias/sprint2/transferencia-assincrona.png)
+- [x] Teste de resiliência reproduzido e documentado, **incluindo a conta ausente** (não só o caminho feliz) — [`resiliencia-fila.png`](evidencias/sprint2/resiliencia-fila.png)
+- [x] `MesclarLogs` identificando pares concorrentes (e pares causais) — [`linha-do-tempo-causal.png`](evidencias/sprint2/linha-do-tempo-causal.png)
+- [x] JWT e frontend do Sprint 1 continuam funcionando (**regressão verificada, não presumida**) — [`regressao-jwt.png`](evidencias/sprint2/regressao-jwt.png), [`regressao-frontend-transferencia.png`](evidencias/sprint2/regressao-frontend-transferencia.png)
+- [x] Pelo menos uma funcionalidade adicional, documentada — dead-letter com reprocessamento; [`funcionalidade-adicional.png`](evidencias/sprint2/funcionalidade-adicional.png)
+- [x] Pasta `evidencias/sprint2/` com os 3 prints da seção 4.3 (mais o da funcionalidade adicional e os complementares) — [índice](evidencias/sprint2/README.md)
+- [x] `RESPOSTAS.md` atualizado com as questões das seções 6.4, 7.5 e 8.3 e a funcionalidade adicional — este documento
+- [x] Atividade de recapitulação (Fluxo de Execução) respondida — [`FLUXO-DE-EXECUCAO.md`](FLUXO-DE-EXECUCAO.md)
+
+**Declaração de uso de IA (nota de transparência do roteiro):** usei o Claude (Anthropic) como apoio para rascunhar, implementar, revisar e testar código e texto ao longo do sprint. Todo o código entregue foi executado e verificado por mim nesta máquina — testes automatizados e execuções reais contra um RabbitMQ real — e consigo explicar e defender qualquer trecho.
