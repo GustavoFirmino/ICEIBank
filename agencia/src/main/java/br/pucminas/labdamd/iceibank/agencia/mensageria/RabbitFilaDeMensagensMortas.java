@@ -33,7 +33,11 @@ public class RabbitFilaDeMensagensMortas implements FilaDeMensagensMortas {
     public void percorrer(int max, Visitante visitante) {
         rabbitTemplate.execute(canal -> {
             List<Long> paraDevolver = new ArrayList<>();
-            for (int lidas = 0; lidas < max; lidas++) {
+            // Processa SO o que estava na fila no INICIO. Uma mensagem republicada que o consumidor
+            // rejeitar de novo (ex.: a conta ainda nao existe) volta para esta mesma fila enquanto o
+            // laco roda - sem este limite, o laco a pegaria de novo, e de novo, ate o limite geral.
+            long totalNoInicio = Math.min((long) max, canal.messageCount(MensageriaConfig.FILA_MORTAS));
+            for (long lidas = 0; lidas < totalNoInicio; lidas++) {
                 GetResponse resposta = canal.basicGet(MensageriaConfig.FILA_MORTAS, false);
                 if (resposta == null) {
                     break; // fila vazia (as ainda nao confirmadas nem devolvidas nao contam)
