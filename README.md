@@ -8,10 +8,23 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 
 | Sprint | Unidade | Tecnologia | Conceito de SD |
 |---|---|---|---|
-| **1 (este)** | U2 - Desenvolvimento Web | API REST/MVC (Spring Boot) + React | Relógio lógico de Lamport |
-| 2 | U3 - Comunicação indireta | Mensageria / Pub-Sub | Relógio vetorial |
+| 1 | U2 - Desenvolvimento Web | API REST/MVC (Spring Boot) + React | Relógio lógico de Lamport |
+| **2 (este)** | U3 - Comunicação indireta | Mensageria / Pub-Sub (RabbitMQ) | Relógio vetorial |
 | 3 | U4 - Desenvolvimento Móvel | App Flutter | Consenso (eleição de líder) |
 | 4 | U5 - Computação em Nuvem | Containers | Transações distribuídas (2PC/Saga) |
+
+## Sprint 2 — escopo (este sprint)
+
+No Sprint 1, a transferência entre agências era uma **chamada REST direta**: se a agência de destino estivesse fora do ar, a chamada falhava e o débito ficava pendurado. Agora ela é **assíncrona, por mensageria**:
+
+- A agência de origem **publica** um evento na exchange `iceibank.eventos` (RabbitMQ, tipo *topic*, durável) com a routing key `agencia.<destino>.creditar`; cada agência **consome** a sua fila durável `fila-agencia-N`. Se a agência de destino estiver fora do ar, a mensagem fica **retida** na fila.
+- O **relógio vetorial** (um contador por agência) substitui o de Lamport: comparar dois vetores prova se dois eventos são causais ou **concorrentes** — o que o Lamport não garantia.
+- `MesclarLogs` agora lista os **pares comprovadamente concorrentes** e verifica que cada par envio → recebimento é causal (`ANTES`).
+- Consumidor **idempotente** (`idMensagem`): a mesma mensagem entregue duas vezes credita uma vez só.
+- Se o **broker** cair, a transferência falha com **503 e o débito é estornado** (no Sprint 1 ele ficava pendurado); o mesmo `idOperacao` pode ser reenviado depois.
+- **Funcionalidade adicional — dead-letter queue com reprocessamento:** um crédito que a agência não consegue aplicar (ex.: reiniciou e perdeu as contas em memória) é retido em `fila-creditos-mortos`; `GET /mensagens-mortas` lista e `POST /mensagens-mortas/reprocessar` republica.
+- **Continua do Sprint 1:** particionamento, JWT, frontend, idempotência e histórico. **Removido:** a rota REST `creditar-remoto` e a chave `X-Internal-Key` (não há mais HTTP entre agências).
+- **Ainda em aberto (de propósito):** as contas são em memória — se a agência de destino *reiniciar*, a conta some e o crédito vai para a dead-letter. E débito local + publicação não são atômicos (isso é o Sprint 4).
 
 ## Sprint 1 — escopo
 
@@ -31,11 +44,14 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 ICEIBank/
 ├── agencia/               Serviço Spring Boot (Java 17) — inclui o Maven Wrapper (mvnw.cmd)
 ├── frontend/              Interface web (React + Vite)
-├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro
+├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro do Sprint 1
+├── evidencias/sprint2/    Prints de execução exigidos pelo roteiro do Sprint 2
+├── iniciar-rabbitmq.ps1   Sobe o RabbitMQ local (Docker) — Sprint 2
 ├── iniciar-agencias.ps1   Sobe as 3 agências em 3 janelas do PowerShell
-├── linha-do-tempo.ps1     Roda o MesclarLogs (Parte E) direto do .jar
-├── demo-auth.ps1          Mostra os 3 cenários de JWT da Parte F (sem token / válido / expirado)
-├── RESPOSTAS.md           Respostas às perguntas de reflexão do roteiro
+├── linha-do-tempo.ps1     Roda o MesclarLogs (linha do tempo causal) direto do .jar
+├── demo-auth.ps1          Mostra os 3 cenários de JWT (sem token / válido / expirado)
+├── RESPOSTAS.md           Respostas às perguntas de reflexão dos roteiros (Sprint 1 e 2)
+├── FLUXO-DE-EXECUCAO.md   Atividade de recapitulação (mensageria, Pub/Sub e relógio vetorial)
 └── README.md
 ```
 
@@ -47,6 +63,8 @@ ICEIBank/
 | Agência 1 | 4048 |
 | Agência 2 | 4049 |
 | Frontend (Vite, dev) | 5173 (padrão) |
+| RabbitMQ (AMQP) | 5672 |
+| RabbitMQ Manager (painel) | 15672 (`guest` / `guest`) |
 
 ## Passo a passo completo (do zero até o frontend aberto)
 
@@ -60,13 +78,23 @@ cd ICEIBank
 ```
 *(Git Bash: mesmos comandos.)*
 
-**Passo 2 — conferir os pré-requisitos** (precisa aparecer Java 17 ou superior e Node 20 ou superior):
+**Passo 2 — conferir os pré-requisitos** (precisa aparecer Java 17 ou superior, Node 20 ou superior e Docker):
 
 ```powershell
 java -version
 node --version
+docker --version
 ```
 *(Git Bash: mesmos comandos.)* Se `java` não for encontrado, instale um JDK 17+ e **abra um terminal novo** depois de instalar.
+
+**Passo 2b — subir o RabbitMQ** (Sprint 2: as agências precisam de um broker; sem ele o login e as contas funcionam, mas transferências entre agências dão 503). O script abre o Docker Desktop se preciso e cria o container `rabbitmq-iceibank`:
+
+```powershell
+.\iniciar-rabbitmq.ps1
+```
+Painel de administração: http://localhost:15672 (`guest` / `guest`). *(Git Bash: `docker run -d --name rabbitmq-iceibank -p 5672:5672 -p 15672:15672 rabbitmq:4-management`.)*
+
+**Alternativa sem Docker — CloudAMQP** (RabbitMQ gerenciado na nuvem, plano gratuito "Little Lemur"): crie a instância em https://www.cloudamqp.com/, copie a **AMQP URL** e defina, **em cada terminal onde uma agência for rodar**: `$env:RABBITMQ_URL="amqps://usuario:senha@host.cloudamqp.com/vhost"` *(Git Bash: `export RABBITMQ_URL=...`)*. Sem essa variável a aplicação usa `amqp://guest:guest@localhost:5672/`.
 
 **Passo 3 — subir as 3 agências** (abre 3 janelas do PowerShell, uma por agência; na primeira vez demora alguns minutos baixando o Maven e as dependências):
 
@@ -115,7 +143,7 @@ curl -s -X POST http://localhost:4047/contas -H "Content-Type: application/json"
 
 Conta 0 e 3 → Agência 0 (porta 4047); conta 1 → Agência 1 (4048); conta 2 → Agência 2 (4049). Agora, no frontend: consulte a conta 0, faça depósito/saque, transfira 0 → 3 (local) e 0 → 1 (entre agências), e tente sacar mais do que o saldo para ver o erro.
 
-**Passo 6 — linha do tempo de Lamport** (depois de gerar alguns eventos), na raiz do repositório:
+**Passo 6 — linha do tempo causal** (relógio vetorial: pares concorrentes × causais), depois de gerar alguns eventos, na raiz do repositório:
 
 ```powershell
 .\linha-do-tempo.ps1
@@ -192,7 +220,7 @@ cd agencia
 
 ## Endpoints da API
 
-Todas as rotas abaixo (exceto `/auth/login`, `/contas/{id}/creditar-remoto` e `/design-system`) exigem o header `Authorization: Bearer <token>` (ver Parte F).
+Todas as rotas abaixo (exceto `/auth/login` e `/design-system`) exigem o header `Authorization: Bearer <token>` (ver Parte F).
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -202,8 +230,9 @@ Todas as rotas abaixo (exceto `/auth/login`, `/contas/{id}/creditar-remoto` e `/
 | POST | `/contas/{id}/depositar` | Deposita (`{"valor"}`) |
 | POST | `/contas/{id}/sacar` | Saca (`{"valor"}`) |
 | GET | `/contas/{id}/historico` | **Extra:** histórico de eventos da conta |
-| POST | `/transferencias` | Transfere (`{"idOrigem","idDestino","valor","idOperacao"}` — `idOperacao` é opcional; ver **Extra: idempotência** abaixo) |
-| POST | `/contas/{id}/creditar-remoto` | Interna, agência-a-agência (`X-Internal-Key`, não JWT) |
+| POST | `/transferencias` | Transfere (`{"idOrigem","idDestino","valor","idOperacao"}` — `idOperacao` é opcional; ver **Extra: idempotência** abaixo). Entre agências, **200 = "o broker aceitou a mensagem"** (o crédito é aplicado depois, de forma assíncrona); broker fora do ar → **503** com o débito estornado |
+| GET | `/mensagens-mortas` | **Extra (Sprint 2):** créditos retidos na dead-letter queue cuja conta de destino é desta agência |
+| POST | `/mensagens-mortas/reprocessar` | **Extra (Sprint 2):** republica esses créditos (útil depois de recriar a conta); só saem da fila após o *publisher confirm* |
 | GET | `/design-system` | Rota pública de referência: paleta de cores, tipografia e princípios de UX pesquisados para o frontend (Parte G) — ver seção abaixo |
 
 ### Paleta e princípios de design (`GET /design-system`)
@@ -245,7 +274,12 @@ Abra `http://localhost:5173`, escolha a agência de entrada e faça login com `g
 | Firewall do Windows pede permissão ao subir a agência | Primeira execução de um servidor Java na máquina | Clicar em "Permitir acesso" |
 | Frontend abre, mas login dá "Falha de rede" / erro de CORS | Agências não estão no ar, ou o frontend está em outra porta que não `5173` | Subir as 3 agências primeiro; manter o Vite na porta padrão (o CORS do backend libera só `http://localhost:5173`) |
 | `npm run dev` falha com erro de sintaxe / `Unexpected token` | Node.js antigo | Instalar Node.js 20 LTS ou superior (`node --version`) |
-| Contas "sumiram" depois de reiniciar uma agência | Estado é em memória, por decisão do roteiro (Sprint 1 não tem banco) | Esperado — recriar as contas via API/frontend |
+| Transferência entre agências devolve **503** ("Broker RabbitMQ nao aceitou...") | RabbitMQ parado ou URL errada | `.\iniciar-rabbitmq.ps1` (ou conferir `RABBITMQ_URL`); o débito já foi estornado — basta reenviar |
+| `iniciar-rabbitmq.ps1`: "o daemon do Docker nao respondeu" | Docker Desktop fechado | Abrir o Docker Desktop e esperar ficar "running"; rodar o script de novo |
+| RabbitMQ cai ao subir com `eacces` em `.erlang.cookie` | Volume Docker criado com dono `root` (Windows/WSL) | O script já corrige o dono do volume; se subir o container à mão, use `--user root --entrypoint chown` uma vez (ver o script) |
+| Agência não sobe: `PRECONDITION_FAILED - inequivalent arg 'x-dead-letter-exchange'` | Já existem no broker filas com o mesmo nome e argumentos diferentes (de outra versão) | Apagar as filas no painel (http://localhost:15672 → Queues → Delete) e subir de novo |
+| Crédito "não chegou" na agência de destino | A agência de destino reiniciou e perdeu a conta (memória) — a mensagem está na dead-letter queue | `GET /mensagens-mortas`; recriar a conta; `POST /mensagens-mortas/reprocessar` |
+| Contas "sumiram" depois de reiniciar uma agência | Estado é em memória, por decisão dos roteiros (ainda não há banco) | Esperado — recriar as contas via API/frontend |
 
 ## Vídeo de apresentação
 
@@ -253,5 +287,6 @@ Funcionalidades e principais decisões do projeto (≈10 min), gravado em 07/09/
 
 ## Documentação
 
+- **Sprint 2 — Fluxo de Execução** (recapitulação sobre mensageria, Pub/Sub e relógio vetorial, respondida com base no código e em execuções reais): [`FLUXO-DE-EXECUCAO.md`](FLUXO-DE-EXECUCAO.md).
 - Respostas às perguntas de cada parte do roteiro, decisões de design (login, autenticação entre agências) e descrição das funcionalidades adicionais: [`RESPOSTAS.md`](RESPOSTAS.md).
-- Evidências de execução: [`evidencias/sprint1/`](evidencias/sprint1). Os prints de API/terminal foram gerados a partir da **saída real** dos comandos (executados contra as 3 agências rodando, com `Get-Date` no início de cada um) e os do frontend a partir do app React rodando de verdade — nenhum resultado foi editado ou montado à mão.
+- Evidências de execução: [`evidencias/sprint1/`](evidencias/sprint1) e [`evidencias/sprint2/`](evidencias/sprint2). Os prints de API/terminal foram gerados a partir da **saída real** dos comandos (executados contra as 3 agências rodando, com `Get-Date` no início de cada um) e os do frontend a partir do app React rodando de verdade — nenhum resultado foi editado ou montado à mão.
