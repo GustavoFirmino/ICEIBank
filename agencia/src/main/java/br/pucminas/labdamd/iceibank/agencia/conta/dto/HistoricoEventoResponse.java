@@ -8,12 +8,13 @@ package br.pucminas.labdamd.iceibank.agencia.conta.dto;
 
 import br.pucminas.labdamd.iceibank.agencia.eventlog.Evento;
 
+import java.util.List;
 import java.util.Map;
 
-public record HistoricoEventoResponse(String tipo, long timestampLamport, String horaParede, Map<String, Object> detalhes) {
+public record HistoricoEventoResponse(String tipo, List<Long> timestampVetorial, String horaParede, Map<String, Object> detalhes) {
 
     public static HistoricoEventoResponse de(Evento evento) {
         return new HistoricoEventoResponse(
-                evento.tipo().name(), evento.timestampLamport(), evento.horaParede().toString(), evento.detalhes());
+                evento.tipo().name(), evento.timestampVetorial(), evento.horaParede().toString(), evento.detalhes());
     }
 }

@@ -50,26 +50,24 @@ class MesclarLogsTest {
     }
 
     @Test
-    void ordenarPorLamportRespeitaOTimestampLogicoPrimeiro() {
-        Evento e1 = evento("agencia-0", TipoEvento.CRIACAO_CONTA, 5);
-        Evento e2 = evento("agencia-1", TipoEvento.CRIACAO_CONTA, 2);
-        Evento e3 = evento("agencia-2", TipoEvento.CRIACAO_CONTA, 3);
+    void ordenarPorHoraParedeUsaORelogioFisicoSoParaExibicao() {
+        Evento tarde = eventoEm("agencia-0", "2026-01-01T10:00:03Z");
+        Evento cedo = eventoEm("agencia-1", "2026-01-01T10:00:01Z");
+        Evento meio = eventoEm("agencia-2", "2026-01-01T10:00:02Z");
 
-        List<Evento> ordenados = MesclarLogs.ordenarPorLamport(List.of(e1, e2, e3));
+        List<Evento> ordenados = MesclarLogs.ordenarPorHoraParede(List.of(tarde, cedo, meio));
 
-        assertEquals(2, ordenados.get(0).timestampLamport());
-        assertEquals(3, ordenados.get(1).timestampLamport());
-        assertEquals(5, ordenados.get(2).timestampLamport());
+        assertEquals("agencia-1", ordenados.get(0).agencia());
+        assertEquals("agencia-2", ordenados.get(1).agencia());
+        assertEquals("agencia-0", ordenados.get(2).agencia());
     }
 
     @Test
-    void ordenarPorLamportDesempataPorAgenciaQuandoTimestampEIgual() {
-        // Simula o caso real observado: duas agencias diferentes, primeiro
-        // evento de cada uma, nunca se falaram = mesmo timestamp logico (1).
-        Evento daAgencia2 = new Evento("agencia-2", TipoEvento.CRIACAO_CONTA, 1, Instant.parse("2026-01-01T10:00:00Z"), 2L, Map.of());
-        Evento daAgencia0 = new Evento("agencia-0", TipoEvento.CRIACAO_CONTA, 1, Instant.parse("2026-01-01T10:00:00Z"), 0L, Map.of());
+    void ordenarPorHoraParedeDesempataPorAgenciaQuandoAHoraEIgual() {
+        Evento daAgencia2 = new Evento("agencia-2", TipoEvento.CRIACAO_CONTA, List.of(0L, 0L, 1L), Instant.parse("2026-01-01T10:00:00Z"), 2L, Map.of());
+        Evento daAgencia0 = new Evento("agencia-0", TipoEvento.CRIACAO_CONTA, List.of(1L, 0L, 0L), Instant.parse("2026-01-01T10:00:00Z"), 0L, Map.of());
 
-        List<Evento> ordenados = MesclarLogs.ordenarPorLamport(List.of(daAgencia2, daAgencia0));
+        List<Evento> ordenados = MesclarLogs.ordenarPorHoraParede(List.of(daAgencia2, daAgencia0));
 
         assertEquals("agencia-0", ordenados.get(0).agencia());
         assertEquals("agencia-2", ordenados.get(1).agencia());
@@ -87,6 +85,10 @@ class MesclarLogsTest {
     }
 
     private Evento evento(String agencia, TipoEvento tipo, long ts) {
-        return new Evento(agencia, tipo, ts, Instant.now(), 0L, Map.of());
+        return new Evento(agencia, tipo, List.of(ts, 0L, 0L), Instant.now(), 0L, Map.of());
+    }
+
+    private Evento eventoEm(String agencia, String instante) {
+        return new Evento(agencia, TipoEvento.CRIACAO_CONTA, List.of(1L, 0L, 0L), Instant.parse(instante), 0L, Map.of());
     }
 }

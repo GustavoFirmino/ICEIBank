@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.List;
+
 /** Implementacao real de RemoteBranchClient, via Spring RestClient sobre HTTP. */
 @Component
 public class RemoteBranchClientHttp implements RemoteBranchClient {
@@ -37,7 +39,7 @@ public class RemoteBranchClientHttp implements RemoteBranchClient {
     }
 
     @Override
-    public void creditarRemoto(int idAgenciaDestino, long idConta, long valor, long timestampLamport, int origemAgencia) {
+    public void creditarRemoto(int idAgenciaDestino, long idConta, long valor, List<Long> vetorEnvio, int origemAgencia) {
         String url = agenciaProperties.urlDaAgencia(idAgenciaDestino) + "/contas/" + idConta + "/creditar-remoto";
 
         try {
@@ -45,7 +47,7 @@ public class RemoteBranchClientHttp implements RemoteBranchClient {
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("X-Internal-Key", agenciaProperties.internalKey())
-                    .body(new CreditarRemotoRequest(valor, timestampLamport, origemAgencia))
+                    .body(new CreditarRemotoRequest(valor, vetorEnvio, origemAgencia))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException erro) {

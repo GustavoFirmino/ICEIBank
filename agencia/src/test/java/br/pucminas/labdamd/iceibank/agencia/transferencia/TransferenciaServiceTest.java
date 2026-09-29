@@ -6,7 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.transferencia;
 
-import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
+import br.pucminas.labdamd.iceibank.agencia.clock.RelogioVetorialService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.AgenciaDestinoIndisponivelException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ComunicacaoAgenciaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
@@ -51,7 +51,7 @@ class TransferenciaServiceTest {
         RuntimeException excecaoASerLancada;
 
         @Override
-        public void creditarRemoto(int idAgenciaDestino, long idConta, long valor, long timestampLamport, int origemAgencia) {
+        public void creditarRemoto(int idAgenciaDestino, long idConta, long valor, java.util.List<Long> vetorEnvio, int origemAgencia) {
             chamadas++;
             ultimaAgenciaDestino = idAgenciaDestino;
             ultimaContaDestino = idConta;
@@ -74,7 +74,7 @@ class TransferenciaServiceTest {
         contaRepository = new ContaRepository();
         remoteBranchClientFalso = new RemoteBranchClientFalso();
         transferenciaService = new TransferenciaService(
-                agencia0, contaRepository, new LamportClockService(), eventLog, remoteBranchClientFalso, new IdempotencyStore());
+                agencia0, contaRepository, new RelogioVetorialService(0, 3), eventLog, remoteBranchClientFalso, new IdempotencyStore());
     }
 
     @AfterEach
@@ -281,12 +281,13 @@ class TransferenciaServiceTest {
     }
 
     @Test
-    void creditarRemotoAplicaRegraDeReceberDoRelogioDeLamport() {
+    void creditarRemotoAplicaRegraDeReceberDoRelogioVetorial() {
         criarConta(1, 50);
 
-        // a "agencia 0" (fake) esta bem adiantada (timestamp 100) - o
-        // creditarRemoto precisa ajustar o relogio local para max(0,100)+1=101
-        CreditarRemotoResponse resposta = transferenciaService.creditarRemoto(1, 20, 100, 0);
+        // esta instancia de teste e a agencia 0, ainda em [0,0,0]; a agencia 1 mandou [0,5,2].
+        // Regra 3: max posicao a posicao = [0,5,2], depois +1 na propria posicao (0) => [1,5,2]
+        CreditarRemotoResponse resposta = transferenciaService.creditarRemoto(1, 20, java.util.List.of(0L, 5L, 2L), 1);
+        assertEquals(java.util.List.of(1L, 5L, 2L), eventLog.historicoDaConta(1).get(0).timestampVetorial());
 
         assertEquals(70, resposta.saldoAtual());
         assertEquals(70, contaRepository.buscar(1).orElseThrow().saldo());

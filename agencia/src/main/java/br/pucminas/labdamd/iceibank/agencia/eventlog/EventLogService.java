@@ -64,13 +64,13 @@ public class EventLogService {
         }
     }
 
-    public Evento registrar(TipoEvento tipo, long timestampLamport, Long idConta, Map<String, Object> detalhes) {
-        Evento evento = new Evento(nomeAgencia, tipo, timestampLamport, Instant.now(), idConta, detalhes);
+    public Evento registrar(TipoEvento tipo, List<Long> timestampVetorial, Long idConta, Map<String, Object> detalhes) {
+        Evento evento = new Evento(nomeAgencia, tipo, timestampVetorial, Instant.now(), idConta, detalhes);
 
         eventosEmMemoria.add(evento);
         gravarNoArquivo(evento);
 
-        log.info("[Lamport {}] {} {}", timestampLamport, tipo, detalhes);
+        log.info("[Vetor {}] {} {}", timestampVetorial, tipo, detalhes);
         return evento;
     }
 

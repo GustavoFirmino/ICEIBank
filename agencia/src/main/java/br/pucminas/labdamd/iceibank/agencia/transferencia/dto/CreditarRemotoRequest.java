@@ -6,5 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.transferencia.dto;
 
-public record CreditarRemotoRequest(long valor, long timestampLamport, int origemAgencia) {
+import java.util.List;
+
+public record CreditarRemotoRequest(long valor, List<Long> vetorEnvio, int origemAgencia) {
 }

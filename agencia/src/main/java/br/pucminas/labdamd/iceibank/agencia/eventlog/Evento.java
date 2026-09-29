@@ -7,13 +7,15 @@
 package br.pucminas.labdamd.iceibank.agencia.eventlog;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Um evento registrado por uma agencia. Guarda dois carimbos de tempo:
- * timestampLamport (o relogio logico, usado para ordenar causalmente) e
- * horaParede (o relogio fisico da maquina, so para comparacao - nao e usado
- * para nenhuma decisao do sistema).
+ * timestampVetorial (o relogio vetorial - um contador por agencia - que e o
+ * que permite decidir se dois eventos sao causalmente relacionados ou
+ * concorrentes) e horaParede (o relogio fisico da maquina, so para exibicao
+ * e comparacao - nao e usado para nenhuma decisao do sistema).
  *
  * idConta fica como campo de primeira classe (nao soterrado dentro de
  * "detalhes") para que o historico por conta (funcionalidade adicional)
@@ -22,7 +24,7 @@ import java.util.Map;
 public record Evento(
         String agencia,
         TipoEvento tipo,
-        long timestampLamport,
+        List<Long> timestampVetorial,
         Instant horaParede,
         Long idConta,
         Map<String, Object> detalhes

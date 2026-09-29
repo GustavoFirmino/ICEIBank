@@ -6,7 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.conta;
 
-import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
+import br.pucminas.labdamd.iceibank.agencia.clock.RelogioVetorialService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosException;
@@ -51,7 +51,7 @@ class ContaServiceTest {
         // nomear o arquivo de log; a logica de particao em si e testada com uma
         // agencia 0 de verdade, que e o que importa para o ContaService.
         AgenciaProperties agencia0DeTeste = new AgenciaProperties(0, 3, 4047, "chave");
-        contaService = new ContaService(agencia0DeTeste, new ContaRepository(), new LamportClockService(), eventLog);
+        contaService = new ContaService(agencia0DeTeste, new ContaRepository(), new RelogioVetorialService(0, 3), eventLog);
     }
 
     @AfterEach

@@ -55,7 +55,7 @@ export function HistoricoList({ idContaPadrao }) {
           {eventos.map((evento, indice) => (
             <li key={indice}>
               <span className="tag-tipo">{evento.tipo}</span>
-              <span className="texto-mudo">Lamport {evento.timestampLamport}</span>
+              <span className="texto-mudo">Vetor [{(evento.timestampVetorial ?? []).join(", ")}]</span>
             </li>
           ))}
         </ul>

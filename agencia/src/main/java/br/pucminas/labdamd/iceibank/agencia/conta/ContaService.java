@@ -6,7 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.conta;
 
-import br.pucminas.labdamd.iceibank.agencia.clock.LamportClockService;
+import br.pucminas.labdamd.iceibank.agencia.clock.RelogioVetorialService;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosException;
@@ -26,11 +26,11 @@ public class ContaService {
 
     private final AgenciaProperties agenciaProperties;
     private final ContaRepository contaRepository;
-    private final LamportClockService relogio;
+    private final RelogioVetorialService relogio;
     private final EventLogService eventLog;
 
     public ContaService(AgenciaProperties agenciaProperties, ContaRepository contaRepository,
-                         LamportClockService relogio, EventLogService eventLog) {
+                         RelogioVetorialService relogio, EventLogService eventLog) {
         this.agenciaProperties = agenciaProperties;
         this.contaRepository = contaRepository;
         this.relogio = relogio;
@@ -51,8 +51,8 @@ public class ContaService {
             throw new ContaDuplicadaException(id);
         }
 
-        long ts = relogio.eventoLocal();
-        eventLog.registrar(TipoEvento.CRIACAO_CONTA, ts, id,
+        List<Long> vetor = relogio.eventoLocal();
+        eventLog.registrar(TipoEvento.CRIACAO_CONTA, vetor, id,
                 Map.of("titular", request.titular(), "saldoInicial", saldoInicial));
 
         return ContaResponse.de(conta);
@@ -66,8 +66,8 @@ public class ContaService {
         Conta conta = buscarOuLancar(id);
         conta.depositar(valor);
 
-        long ts = relogio.eventoLocal();
-        eventLog.registrar(TipoEvento.DEPOSITO, ts, id, Map.of("valor", valor, "novoSaldo", conta.saldo()));
+        List<Long> vetor = relogio.eventoLocal();
+        eventLog.registrar(TipoEvento.DEPOSITO, vetor, id, Map.of("valor", valor, "novoSaldo", conta.saldo()));
 
         return ContaResponse.de(conta);
     }
@@ -76,8 +76,8 @@ public class ContaService {
         Conta conta = buscarOuLancar(id);
         conta.sacar(valor); // lanca SaldoInsuficienteException se nao houver saldo - nao consome tick do relogio
 
-        long ts = relogio.eventoLocal();
-        eventLog.registrar(TipoEvento.SAQUE, ts, id, Map.of("valor", valor, "novoSaldo", conta.saldo()));
+        List<Long> vetor = relogio.eventoLocal();
+        eventLog.registrar(TipoEvento.SAQUE, vetor, id, Map.of("valor", valor, "novoSaldo", conta.saldo()));
 
         return ContaResponse.de(conta);
     }

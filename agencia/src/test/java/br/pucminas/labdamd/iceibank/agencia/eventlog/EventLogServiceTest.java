@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EventLogServiceTest {
@@ -48,8 +49,8 @@ class EventLogServiceTest {
 
     @Test
     void registrarGravaUmaLinhaJsonPorEvento() throws IOException {
-        eventLogService.registrar(TipoEvento.CRIACAO_CONTA, 1, 5L, Map.of("nomeAluno", "Gustavo"));
-        eventLogService.registrar(TipoEvento.DEPOSITO, 2, 5L, Map.of("valor", 100));
+        eventLogService.registrar(TipoEvento.CRIACAO_CONTA, List.of(1L, 0L, 0L), 5L, Map.of("nomeAluno", "Gustavo"));
+        eventLogService.registrar(TipoEvento.DEPOSITO, List.of(2L, 0L, 0L), 5L, Map.of("valor", 100));
 
         List<String> linhas = Files.readAllLines(arquivoDeTeste);
         assertEquals(2, linhas.size());
@@ -59,14 +60,23 @@ class EventLogServiceTest {
 
     @Test
     void historicoDaContaFiltraApenasEventosDaquelaConta() {
-        eventLogService.registrar(TipoEvento.CRIACAO_CONTA, 1, 5L, Map.of());
-        eventLogService.registrar(TipoEvento.DEPOSITO, 2, 5L, Map.of("valor", 100));
-        eventLogService.registrar(TipoEvento.CRIACAO_CONTA, 3, 8L, Map.of());
+        eventLogService.registrar(TipoEvento.CRIACAO_CONTA, List.of(1L, 0L, 0L), 5L, Map.of());
+        eventLogService.registrar(TipoEvento.DEPOSITO, List.of(2L, 0L, 0L), 5L, Map.of("valor", 100));
+        eventLogService.registrar(TipoEvento.CRIACAO_CONTA, List.of(3L, 0L, 0L), 8L, Map.of());
 
         List<Evento> historicoConta5 = eventLogService.historicoDaConta(5);
 
         assertEquals(2, historicoConta5.size());
         assertEquals(TipoEvento.CRIACAO_CONTA, historicoConta5.get(0).tipo());
         assertEquals(TipoEvento.DEPOSITO, historicoConta5.get(1).tipo());
+    }
+
+    @Test
+    void oVetorCompletoVaiParaOArquivoComoListaJson() throws IOException {
+        eventLogService.registrar(TipoEvento.DEPOSITO, List.of(2L, 1L, 0L), 5L, Map.of("valor", 100));
+
+        String linha = Files.readAllLines(arquivoDeTeste).get(0);
+        assertTrue(linha.contains("\"timestampVetorial\":[2,1,0]"), linha);
+        assertFalse(linha.contains("timestampLamport"), linha);
     }
 }

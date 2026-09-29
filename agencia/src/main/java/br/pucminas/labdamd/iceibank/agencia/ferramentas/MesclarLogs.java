@@ -33,7 +33,7 @@ public class MesclarLogs {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
         List<Evento> todosEventos = lerTodosOsEventos(pastaDados, objectMapper);
-        List<Evento> ordenados = ordenarPorLamport(todosEventos);
+        List<Evento> ordenados = ordenarPorHoraParede(todosEventos);
 
         imprimirLinhaDoTempo(ordenados);
     }
@@ -44,11 +44,10 @@ public class MesclarLogs {
      * que, como o relogio de Lamport NAO garante ordem total entre eventos
      * concorrentes, pode acontecer de verdade - ver Parte E do RESPOSTAS.md).
      */
-    static List<Evento> ordenarPorLamport(List<Evento> eventos) {
+    static List<Evento> ordenarPorHoraParede(List<Evento> eventos) {
         List<Evento> copia = new ArrayList<>(eventos);
         copia.sort(
-                Comparator.comparingLong(Evento::timestampLamport)
-                        .thenComparing(Evento::horaParede)
+                Comparator.comparing(Evento::horaParede)
                         .thenComparing(Evento::agencia));
         return copia;
     }
@@ -72,15 +71,15 @@ public class MesclarLogs {
     }
 
     private static void imprimirLinhaDoTempo(List<Evento> eventos) {
-        System.out.println("=== Linha do tempo unificada (ordenada por relogio de Lamport) ===");
+        System.out.println("=== Linha do tempo unificada (ordenada por hora de parede) ===");
         if (eventos.isEmpty()) {
             System.out.println("(nenhum evento encontrado em data/agencia-*.jsonl - rode as agencias e gere alguns eventos primeiro)");
             return;
         }
         for (Evento evento : eventos) {
             System.out.printf(
-                    "[Lamport %d] (%s) %s - %s %s%n",
-                    evento.timestampLamport(), evento.horaParede(), evento.agencia(), evento.tipo(), evento.detalhes());
+                    "[Vetor %s] (%s) %s - %s %s%n",
+                    evento.timestampVetorial(), evento.horaParede(), evento.agencia(), evento.tipo(), evento.detalhes());
         }
     }
 }

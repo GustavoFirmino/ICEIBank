@@ -6,6 +6,8 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.transferencia;
 
+import java.util.List;
+
 /**
  * Chamada REST direta entre agencias (Parte D) - a agencia de origem
  * contata diretamente a agencia de destino para creditar a conta remota.
@@ -30,5 +32,5 @@ public interface RemoteBranchClient {
      * fosse uma agencia fora do ar. Qualquer outra excecao (bug de
      * programacao) deve propagar normalmente, sem ser encapsulada.
      */
-    void creditarRemoto(int idAgenciaDestino, long idConta, long valor, long timestampLamport, int origemAgencia);
+    void creditarRemoto(int idAgenciaDestino, long idConta, long valor, List<Long> vetorEnvio, int origemAgencia);
 }

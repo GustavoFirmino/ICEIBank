@@ -36,6 +36,6 @@ public class TransferenciasController {
      */
     @PostMapping("/contas/{id}/creditar-remoto")
     public CreditarRemotoResponse creditarRemoto(@PathVariable long id, @RequestBody CreditarRemotoRequest request) {
-        return transferenciaService.creditarRemoto(id, request.valor(), request.timestampLamport(), request.origemAgencia());
+        return transferenciaService.creditarRemoto(id, request.valor(), request.vetorEnvio(), request.origemAgencia());
     }
 }
