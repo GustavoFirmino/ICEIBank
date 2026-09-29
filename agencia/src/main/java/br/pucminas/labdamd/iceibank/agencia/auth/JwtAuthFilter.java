@@ -25,11 +25,12 @@ import java.util.List;
 
 /**
  * Exige um JWT valido (Authorization: Bearer &lt;token&gt;) em todas as rotas
- * que leem/modificam contas. Duas rotas ficam de fora deste filtro:
+ * que leem/modificam contas. Uma rota fica de fora deste filtro:
  *  - POST /auth/login (obvio: e onde o token e obtido)
- *  - POST /contas/{id}/creditar-remoto (rota INTERNA agencia-a-agencia; usa
- *    o header X-Internal-Key, verificado dentro do proprio controller - ver
- *    justificativa dessa decisao de design na Parte F do RESPOSTAS.md)
+ *
+ * (No Sprint 1 havia uma segunda rota publica, a interna creditar-remoto, protegida por uma
+ * chave X-Internal-Key. No Sprint 2 ela deixou de existir: o credito entre agencias agora
+ * chega por mensageria, nao por HTTP.)
  *
  * Requisicao sem token, com token invalido ou expirado -> 401, respondido
  * diretamente aqui (nao delega para o tratamento padrao do Spring Security,

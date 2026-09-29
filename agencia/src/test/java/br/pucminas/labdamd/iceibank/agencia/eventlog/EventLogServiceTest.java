@@ -28,7 +28,7 @@ class EventLogServiceTest {
 
     // Agencia 9 nao existe de verdade - usada so pra nao colidir com o
     // arquivo real gerado por uma execucao normal (data/agencia-0/1/2.jsonl).
-    private static final AgenciaProperties AGENCIA_DE_TESTE = new AgenciaProperties(91, 3, 4047, "chave");
+    private static final AgenciaProperties AGENCIA_DE_TESTE = new AgenciaProperties(91, 3, 4047);
     private final Path arquivoDeTeste = Paths.get("data", "agencia-91.jsonl");
 
     private EventLogService eventLogService;

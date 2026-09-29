@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ContaServiceTest {
 
     // Agencia 9 (fake, so pra teste) responsavel por contas com id % 3 == 0 (mesmo resto da agencia 0)
-    private static final AgenciaProperties AGENCIA_DE_TESTE = new AgenciaProperties(92, 3, 4047, "chave");
+    private static final AgenciaProperties AGENCIA_DE_TESTE = new AgenciaProperties(92, 3, 4047);
     private final Path arquivoDeTeste = Paths.get("data", "agencia-92.jsonl");
 
     private ContaService contaService;
@@ -50,7 +50,7 @@ class ContaServiceTest {
         // teste para nao compartilhar arquivo com outras classes de teste) so para
         // nomear o arquivo de log; a logica de particao em si e testada com uma
         // agencia 0 de verdade, que e o que importa para o ContaService.
-        AgenciaProperties agencia0DeTeste = new AgenciaProperties(0, 3, 4047, "chave");
+        AgenciaProperties agencia0DeTeste = new AgenciaProperties(0, 3, 4047);
         contaService = new ContaService(agencia0DeTeste, new ContaRepository(), new RelogioVetorialService(0, 3), eventLog);
     }
 

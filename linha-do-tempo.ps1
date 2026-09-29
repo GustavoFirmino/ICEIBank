@@ -16,7 +16,10 @@ $jar = Join-Path $agencia "target\agencia-1.0.0.jar"
 if (-not (Test-Path $jar)) {
     Write-Host "Jar ainda nao existe - empacotando com o Maven Wrapper..."
     Push-Location $agencia
-    try { & .\mvnw.cmd -q -DskipTests package } finally { Pop-Location }
+    try {
+        $ErrorActionPreference = "Continue"   # avisos do Maven (JDK recente) vao para o stderr
+        & .\mvnw.cmd -q -DskipTests package
+    } finally { $ErrorActionPreference = "Stop"; Pop-Location }
 }
 
 # PropertiesLauncher e o launcher do Spring Boot que aceita trocar a classe

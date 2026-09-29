@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AgenciaPropertiesTest {
 
-    private final AgenciaProperties agencia0 = new AgenciaProperties(0, 3, 4047, "chave");
-    private final AgenciaProperties agencia1 = new AgenciaProperties(1, 3, 4047, "chave");
+    private final AgenciaProperties agencia0 = new AgenciaProperties(0, 3, 4047);
+    private final AgenciaProperties agencia1 = new AgenciaProperties(1, 3, 4047);
 
     @Test
     void contaZeroPertenceAAgenciaZero() {
@@ -34,12 +34,5 @@ class AgenciaPropertiesTest {
     void contaDeOutraAgenciaNaoPertenceAEstaAgencia() {
         assertFalse(agencia0.pertenceAEstaAgencia(1));
         assertTrue(agencia1.pertenceAEstaAgencia(1));
-    }
-
-    @Test
-    void urlDaAgenciaUsaPortaBaseMaisId() {
-        assertEquals("http://localhost:4047", agencia0.urlDaAgencia(0));
-        assertEquals("http://localhost:4048", agencia0.urlDaAgencia(1));
-        assertEquals("http://localhost:4049", agencia0.urlDaAgencia(2));
     }
 }

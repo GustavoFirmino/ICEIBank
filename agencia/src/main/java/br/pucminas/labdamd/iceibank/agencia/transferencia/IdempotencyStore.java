@@ -29,6 +29,7 @@
 package br.pucminas.labdamd.iceibank.agencia.transferencia;
 
 import br.pucminas.labdamd.iceibank.agencia.transferencia.dto.TransferenciaResponse;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.FalhaRetentavel;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,7 +69,13 @@ public class IdempotencyStore {
                 sucessos.put(idOperacao, resposta);
                 return resposta;
             } catch (RuntimeException erro) {
-                falhas.put(idOperacao, erro);
+                // Falha RETENTAVEL (estado totalmente desfeito, ex.: broker fora do ar e debito
+                // estornado) NAO e guardada: senao o mesmo idOperacao falharia para sempre,
+                // mesmo depois do broker voltar. As demais falhas continuam guardadas para
+                // que reenviar nunca reexecute uma operacao que ja deixou rastro.
+                if (!(erro instanceof FalhaRetentavel)) {
+                    falhas.put(idOperacao, erro);
+                }
                 throw erro;
             }
         }

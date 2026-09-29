@@ -40,9 +40,18 @@ class JwtAuthFilterTest {
     }
 
     @Test
-    void naoFiltraRotaInternaDeCreditoRemoto() {
+    void rotaRestInternaDeCreditoRemotoDoSprint1DeixouDeSerPublica() {
+        // Sprint 2: o credito entre agencias chega por mensageria. A rota REST antiga nao existe mais
+        // e, se alguem a chamar, cai no filtro JWT como qualquer outra rota (401 sem token).
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/contas/7/creditar-remoto");
         request.setServletPath("/contas/7/creditar-remoto");
+        assertFalse(invocarShouldNotFilter(request));
+    }
+
+    @Test
+    void naoFiltraRotaPublicaDoDesignSystem() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/design-system");
+        request.setServletPath("/design-system");
         assertTrue(invocarShouldNotFilter(request));
     }
 

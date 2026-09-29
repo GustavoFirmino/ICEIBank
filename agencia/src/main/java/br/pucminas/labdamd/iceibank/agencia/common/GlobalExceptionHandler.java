@@ -6,7 +6,7 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.common;
 
-import br.pucminas.labdamd.iceibank.agencia.common.exceptions.AgenciaDestinoIndisponivelException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.MensageriaIndisponivelException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaDuplicadaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ContaNaoEncontradaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosException;
@@ -42,9 +42,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErroResponse(ex.getMessage()));
     }
 
-    @ExceptionHandler(AgenciaDestinoIndisponivelException.class)
-    public ResponseEntity<ErroResponse> tratarAgenciaDestinoIndisponivel(AgenciaDestinoIndisponivelException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(new ErroResponse(ex.getMessage()));
+    @ExceptionHandler(MensageriaIndisponivelException.class)
+    public ResponseEntity<ErroResponse> tratarMensageriaIndisponivel(MensageriaIndisponivelException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ErroResponse(ex.getMessage()));
     }
 
     @ExceptionHandler(ValorInvalidoException.class)

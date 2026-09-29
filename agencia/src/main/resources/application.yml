@@ -11,7 +11,6 @@
 agencia:
   total-agencias: 3
   porta-base: 4047 # 4000 + OFFSET (47)
-  internal-key: "iceibank-chave-interna-agencias-47"
 
 jwt:
   secret: "iceibank-segredo-jwt-sprint1-troque-em-producao-47-abcdef0123456789"
@@ -41,6 +40,8 @@ spring:
     uri: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672/}
     # confirmacao do broker: "publicada" so vale depois que o RabbitMQ aceitou a mensagem
     publisher-confirm-type: correlated
+    # broker inalcancavel nao pode prender a thread HTTP por 60 s (padrao): falha rapido e estorna
+    connection-timeout: 5s
     listener:
       simple:
         # mensagem rejeitada NAO volta para a fila (evita loop infinito) - vai para a dead-letter queue

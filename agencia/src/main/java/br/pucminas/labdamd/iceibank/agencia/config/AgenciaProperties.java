@@ -15,11 +15,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Cada conta pertence a exatamente UMA agencia (particao, nao replicacao):
  * dado o id da conta, a agencia responsavel e id % totalAgencias.
  *
- * "id" e "internalKey" ficam nos arquivos application-agenciaN.yml / application.yml
- * (ver README) - "id" e diferente por instancia, o resto e compartilhado entre as 3.
+ * "id" fica em application-agenciaN.yml (diferente por instancia); o resto e compartilhado
+ * entre as 3 (application.yml). No Sprint 2 nao existe mais chave interna nem URL de outra
+ * agencia: agencias nao se chamam por HTTP, so trocam mensagens pelo RabbitMQ.
  */
 @ConfigurationProperties(prefix = "agencia")
-public record AgenciaProperties(int id, int totalAgencias, int portaBase, String internalKey) {
+public record AgenciaProperties(int id, int totalAgencias, int portaBase) {
 
     /**
      * Regra de particionamento: id_conta % numero_de_agencias.
@@ -37,13 +38,5 @@ public record AgenciaProperties(int id, int totalAgencias, int portaBase, String
         if (!pertenceAEstaAgencia(idConta)) {
             throw new ParticaoInvalidaException(idConta, agenciaResponsavel(idConta));
         }
-    }
-
-    /**
-     * URL base de outra agencia, calculada a partir da porta-base + id dela
-     * (mesma convencao de portas usada em todos os roteiros: PORTA_BASE + OFFSET).
-     */
-    public String urlDaAgencia(int idAgencia) {
-        return "http://localhost:" + (portaBase + idAgencia);
     }
 }

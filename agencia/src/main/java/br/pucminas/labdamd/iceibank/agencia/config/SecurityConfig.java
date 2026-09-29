@@ -4,14 +4,13 @@
  * Projeto: ICEIBank - Sprint 1 - Parte F (Autenticacao JWT)
  * OFFSET pessoal (2 ultimos digitos da matricula): 47
  *
- * Substitui a config temporaria (permitAll) das Partes C/D: agora as rotas
- * de conta exigem um JWT valido, e a rota interna entre agencias exige a
- * chave X-Internal-Key - ambas checadas por filtros dedicados (JwtAuthFilter
- * e InternalKeyAuthFilter), nao por codigo dentro dos controllers.
+ * As rotas de conta e de transferencia exigem um JWT valido, checado pelo
+ * JwtAuthFilter (nao por codigo dentro dos controllers). No Sprint 1 havia
+ * tambem a rota interna creditar-remoto, protegida por X-Internal-Key; no
+ * Sprint 2 ela foi removida (o credito entre agencias chega por mensageria).
  */
 package br.pucminas.labdamd.iceibank.agencia.config;
 
-import br.pucminas.labdamd.iceibank.agencia.auth.InternalKeyAuthFilter;
 import br.pucminas.labdamd.iceibank.agencia.auth.JwtAuthFilter;
 import br.pucminas.labdamd.iceibank.agencia.auth.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,25 +28,21 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService,
-                                            AgenciaProperties agenciaProperties, ObjectMapper objectMapper,
+                                            ObjectMapper objectMapper,
                                             CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Preflight do CORS (OPTIONS) precisa passar SEM exigir JWT/chave interna -
+                        // Preflight do CORS (OPTIONS) precisa passar SEM exigir JWT -
                         // o navegador nunca manda esses headers numa requisicao de preflight.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SecurityPaths.LOGIN).permitAll()
-                        // /contas/*/creditar-remoto e "publica" para o Spring Security (sem JWT),
-                        // mas continua protegida - pelo InternalKeyAuthFilter abaixo, nao por JWT.
-                        .requestMatchers(SecurityPaths.CREDITAR_REMOTO).permitAll()
                         // /design-system e so referencia de design (nao e dado de conta) - publica de proposito.
                         .requestMatchers(SecurityPaths.DESIGN_SYSTEM).permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(new JwtAuthFilter(jwtService, objectMapper), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(new InternalKeyAuthFilter(agenciaProperties, objectMapper), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthFilter(jwtService, objectMapper), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

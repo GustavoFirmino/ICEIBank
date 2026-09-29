@@ -12,7 +12,8 @@
 # Uso (a partir da raiz do repositorio):
 #   .\iniciar-agencias.ps1
 #
-# Pre-requisito: JDK 17 ou superior no PATH (confira com: java -version).
+# Pre-requisitos: JDK 17 ou superior no PATH (java -version) e, desde o Sprint 2, um RabbitMQ
+# acessivel: .\iniciar-rabbitmq.ps1 (Docker) ou a variavel RABBITMQ_URL apontando para o CloudAMQP.
 $ErrorActionPreference = "Stop"
 $raiz = Split-Path -Parent $MyInvocation.MyCommand.Path
 $agencia = Join-Path $raiz "agencia"
@@ -23,12 +24,26 @@ if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-if (-not (Test-Path $jar)) {
-    Write-Host "Jar ainda nao existe - empacotando com o Maven Wrapper (primeira vez pode demorar: baixa o Maven e as dependencias)..."
+# reempacota se o jar nao existe OU se algum fonte/pom e mais novo que ele (evita subir uma versao antiga do codigo)
+$precisaEmpacotar = -not (Test-Path $jar)
+if (-not $precisaEmpacotar) {
+    $jarData = (Get-Item $jar).LastWriteTime
+    $maisNovo = Get-ChildItem -Path (Join-Path $agencia "src"), (Join-Path $agencia "pom.xml") -Recurse -File |
+        Where-Object { $_.LastWriteTime -gt $jarData } | Select-Object -First 1
+    $precisaEmpacotar = $null -ne $maisNovo
+}
+
+if ($precisaEmpacotar) {
+    Write-Host "Empacotando com o Maven Wrapper (primeira vez pode demorar: baixa o Maven e as dependencias)..."
     Push-Location $agencia
     try {
+        # JDKs recentes fazem o Maven imprimir avisos no stderr; com "Stop" o PowerShell 5.1 trataria
+        # isso como erro e abortaria - so o codigo de saida do mvnw importa.
+        $ErrorActionPreference = "Continue"
         & .\mvnw.cmd -q -DskipTests package
-        if ($LASTEXITCODE -ne 0) { throw "Falha ao empacotar (mvnw retornou $LASTEXITCODE)." }
+        $codigo = $LASTEXITCODE
+        $ErrorActionPreference = "Stop"
+        if ($codigo -ne 0) { throw "Falha ao empacotar (mvnw retornou $codigo)." }
     } finally {
         Pop-Location
     }

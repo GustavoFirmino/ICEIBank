@@ -17,10 +17,9 @@ import java.util.List;
 public final class SecurityPaths {
 
     public static final String LOGIN = "/auth/login";
-    public static final String CREDITAR_REMOTO = "/contas/*/creditar-remoto";
     public static final String DESIGN_SYSTEM = "/design-system";
 
-    public static final List<String> PUBLICAS = List.of(LOGIN, CREDITAR_REMOTO, DESIGN_SYSTEM);
+    public static final List<String> PUBLICAS = List.of(LOGIN, DESIGN_SYSTEM);
 
     private SecurityPaths() {
     }
