@@ -16,6 +16,7 @@ Prints gerados a partir da **saída real** dos comandos, executados contra as 3 
 | Arquivo | O que mostra |
 |---|---|
 | `entrega-duplicada.png` | A mesma mensagem publicada 2× direto no RabbitMQ creditou 1× (consumidor idempotente por `idMensagem`) |
+| `ordem-invertida.png` | Experimento da pergunta 7 do Fluxo de Execução: uma transferência que **aconteceu primeiro** foi **aplicada depois** (parou na dead-letter); as duas publicações são provadamente concorrentes |
 | `broker-fora-do-ar.png` | Broker parado → **503** com o débito **estornado**; broker volta → o **mesmo** `idOperacao` funciona |
 | `regressao-jwt.png` | JWT do Sprint 1 continua funcionando (sem token 401 / válido 200 / expirado 401) e a rota REST `creditar-remoto` não existe mais (404) |
 | `regressao-frontend-transferencia.png` | Frontend do Sprint 1: transferência entre agências pela interface, agora "publicada (entrega assíncrona)" |
