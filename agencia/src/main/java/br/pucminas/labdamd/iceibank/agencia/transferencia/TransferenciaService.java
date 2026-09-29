@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -124,6 +125,7 @@ public class TransferenciaService {
         // Ao ENVIAR uma mensagem, o relogio vetorial e incrementado e o vetor INTEIRO
         // e anexado a ela - regra 2 do algoritmo.
         List<Long> vetorEnvio = relogio.aoEnviar();
+        Instant instanteDoEnvio = Instant.now(); // o evento ACONTECEU aqui, nao quando o log for escrito
         String idMensagem = UUID.randomUUID().toString();
         var mensagem = new CreditoRemotoMensagem(
                 idMensagem, idDestino, valor, vetorEnvio, agenciaProperties.id(), idOrigem);
@@ -140,7 +142,7 @@ public class TransferenciaService {
 
         eventLog.registrar(TipoEvento.TRANSFERENCIA_PUBLICADA, vetorEnvio, idOrigem,
                 Map.of("idMensagem", idMensagem, "idDestino", idDestino, "valor", valor,
-                        "agenciaDestino", agenciaDestino));
+                        "agenciaDestino", agenciaDestino), instanteDoEnvio);
 
         return TransferenciaResponse.nova("Transferencia publicada para a agencia de destino (entrega assincrona).");
     }

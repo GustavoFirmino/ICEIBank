@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ public class MensagensMortasService {
             // aplicar o credito antes mesmo desta thread voltar de publicar(). Com o vetor anterior,
             // o reprocessamento fica causalmente ANTES do credito, como deve ser.
             List<Long> vetorReprocessamento = relogio.eventoLocal();
+            Instant instanteDoReprocessamento = Instant.now();
             try {
                 publicadorCreditos.publicar(agenciaProperties.agenciaResponsavel(mensagem.idConta()), mensagem);
             } catch (MensageriaIndisponivelException erro) {
@@ -93,7 +95,7 @@ public class MensagensMortasService {
             }
             eventLog.registrar(TipoEvento.CREDITO_REMOTO_REPROCESSADO, vetorReprocessamento, mensagem.idConta(),
                     Map.of("idMensagem", mensagem.idMensagem(), "valor", mensagem.valor(),
-                            "origemAgencia", mensagem.origemAgencia()));
+                            "origemAgencia", mensagem.origemAgencia()), instanteDoReprocessamento);
             contadores[0]++;
             return FilaDeMensagensMortas.Decisao.CONFIRMAR;
         });

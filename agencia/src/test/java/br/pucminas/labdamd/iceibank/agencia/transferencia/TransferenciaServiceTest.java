@@ -54,6 +54,7 @@ class TransferenciaServiceTest {
     /** Duble de teste simples para PublicadorCreditos - sem broker real, sem framework de mock. */
     private static class PublicadorFalso implements PublicadorCreditos {
         int chamadas = 0;
+        java.time.Instant momentoDaChamada;
         final List<Integer> agenciasDestino = new ArrayList<>();
         final List<CreditoRemotoMensagem> mensagens = new ArrayList<>();
         RuntimeException excecaoASerLancada;
@@ -61,6 +62,12 @@ class TransferenciaServiceTest {
         @Override
         public void publicar(int idAgenciaDestino, CreditoRemotoMensagem mensagem) {
             chamadas++;
+            momentoDaChamada = java.time.Instant.now();
+            try {
+                Thread.sleep(15); // o broker "demora" a confirmar; o evento nao pode herdar essa demora
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             if (excecaoASerLancada != null) {
                 throw excecaoASerLancada;
             }
@@ -186,6 +193,21 @@ class TransferenciaServiceTest {
         assertEquals(List.of(1L, 0L, 0L), debito.timestampVetorial());
         assertEquals(List.of(2L, 0L, 0L), publicada.timestampVetorial());
         assertEquals(publicadorFalso.mensagens.get(0).idMensagem(), publicada.detalhes().get("idMensagem"));
+    }
+
+    @Test
+    void oEventoDePublicacaoCarregaAHoraEmQueOEnvioACONTECEUNaoAHoraEmQueOLogFoiEscrito() {
+        // O broker confirma devagar (15 ms no duble) e o consumidor da outra agencia, em outra thread,
+        // pode aplicar o credito antes do log da publicacao ser escrito. A hora do evento tem de ser a do
+        // envio: senao a linha do tempo por hora de parede mostraria o efeito ANTES da causa.
+        criarConta(0, 100);
+
+        transferenciaService.transferir(new TransferenciaRequest(0, 1, 20));
+
+        Evento publicada = eventLog.historicoDaConta(0).stream()
+                .filter(e -> e.tipo() == TipoEvento.TRANSFERENCIA_PUBLICADA).findFirst().orElseThrow();
+        assertFalse(publicada.horaParede().isAfter(publicadorFalso.momentoDaChamada),
+                "PUBLICADA (" + publicada.horaParede() + ") deveria ser anterior a chamada do broker (" + publicadorFalso.momentoDaChamada + ")");
     }
 
     @Test

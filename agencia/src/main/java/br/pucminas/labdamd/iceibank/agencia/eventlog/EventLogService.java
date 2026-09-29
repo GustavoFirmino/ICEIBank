@@ -65,7 +65,19 @@ public class EventLogService {
     }
 
     public Evento registrar(TipoEvento tipo, List<Long> timestampVetorial, Long idConta, Map<String, Object> detalhes) {
-        Evento evento = new Evento(nomeAgencia, tipo, timestampVetorial, Instant.now(), idConta, detalhes);
+        return registrar(tipo, timestampVetorial, idConta, detalhes, Instant.now());
+    }
+
+    /**
+     * Registra com o instante em que o evento ACONTECEU, quando ele difere do instante em que o log e
+     * escrito. Caso tipico: a publicacao no RabbitMQ - o evento e gravado depois do publisher confirm, mas
+     * aconteceu (e o vetor foi tomado) ANTES; o consumidor da outra agencia, em outra thread, pode ate
+     * aplicar o credito antes de este log ser escrito. Sem o instante correto, a linha do tempo por hora de
+     * parede mostraria o efeito antes da causa (o vetor continuaria certo - so a hora enganaria).
+     */
+    public Evento registrar(TipoEvento tipo, List<Long> timestampVetorial, Long idConta, Map<String, Object> detalhes,
+                            Instant instanteDoEvento) {
+        Evento evento = new Evento(nomeAgencia, tipo, timestampVetorial, instanteDoEvento, idConta, detalhes);
 
         eventosEmMemoria.add(evento);
         gravarNoArquivo(evento);
