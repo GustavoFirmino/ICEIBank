@@ -18,7 +18,7 @@ if (-not (Test-Path $jar)) {
     Push-Location $agencia
     try {
         $ErrorActionPreference = "Continue"   # avisos do Maven (JDK recente) vao para o stderr
-        & .\mvnw.cmd -q -DskipTests package
+        & .\mvnw.cmd -q -DskipTests package 2>$null
     } finally { $ErrorActionPreference = "Stop"; Pop-Location }
 }
 

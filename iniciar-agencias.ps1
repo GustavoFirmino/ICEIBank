@@ -40,7 +40,7 @@ if ($precisaEmpacotar) {
         # JDKs recentes fazem o Maven imprimir avisos no stderr; com "Stop" o PowerShell 5.1 trataria
         # isso como erro e abortaria - so o codigo de saida do mvnw importa.
         $ErrorActionPreference = "Continue"
-        & .\mvnw.cmd -q -DskipTests package
+        & .\mvnw.cmd -q -DskipTests package 2>$null
         $codigo = $LASTEXITCODE
         $ErrorActionPreference = "Stop"
         if ($codigo -ne 0) { throw "Falha ao empacotar (mvnw retornou $codigo)." }

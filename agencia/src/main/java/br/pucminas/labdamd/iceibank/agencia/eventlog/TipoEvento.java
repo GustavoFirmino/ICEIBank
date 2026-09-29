@@ -22,5 +22,7 @@ public enum TipoEvento {
     CREDITO_REMOTO_FALHOU,
     /** Sprint 2: a mesma mensagem (mesmo idMensagem) chegou de novo e foi ignorada - o credito NAO foi aplicado duas vezes. */
     CREDITO_REMOTO_DUPLICADO,
+    /** Funcionalidade adicional: um credito que estava na dead-letter queue foi republicado para nova tentativa. */
+    CREDITO_REMOTO_REPROCESSADO,
     LOGIN
 }
