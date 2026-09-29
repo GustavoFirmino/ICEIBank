@@ -92,7 +92,7 @@ docker --version
 ```powershell
 .\iniciar-rabbitmq.ps1
 ```
-Painel de administração: http://localhost:15672 (`guest` / `guest`). *(Git Bash: `docker run -d --name rabbitmq-iceibank -p 5672:5672 -p 15672:15672 rabbitmq:4-management`.)*
+Painel de administração: http://localhost:15672 (`guest` / `guest`). *(Git Bash: `docker run -d --name rabbitmq-iceibank -p 127.0.0.1:5672:5672 -p 127.0.0.1:15672:15672 rabbitmq:4-management` — publique as portas só em `127.0.0.1`: a imagem aceita o usuário `guest` de qualquer origem, e, com `-p 5672:5672` aberto para a rede, qualquer máquina do laboratório poderia publicar mensagens e criar dinheiro.)*
 
 **Alternativa sem Docker — CloudAMQP** (RabbitMQ gerenciado na nuvem, plano gratuito "Little Lemur"): crie a instância em https://www.cloudamqp.com/, copie a **AMQP URL** e defina, **em cada terminal onde uma agência for rodar**: `$env:RABBITMQ_URL="amqps://usuario:senha@host.cloudamqp.com/vhost"` *(Git Bash: `export RABBITMQ_URL=...`)*. Sem essa variável a aplicação usa `amqp://guest:guest@localhost:5672/`.
 

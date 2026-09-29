@@ -10,6 +10,7 @@
 #
 #   AMQP:    localhost:5672
 #   Painel:  http://localhost:15672   (usuario guest / senha guest)
+#   As portas so ficam abertas em 127.0.0.1 (este computador) - ver o aviso de seguranca abaixo.
 #
 # Uso (a partir da raiz do repositorio):  .\iniciar-rabbitmq.ps1
 $ErrorActionPreference = "Stop"
@@ -36,13 +37,27 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $existe = (& docker ps -a --filter "name=^$nome$" --format "{{.Names}}")
+
+# SEGURANCA: a imagem oficial aceita o usuario guest de QUALQUER origem. Com as portas publicadas em
+# 0.0.0.0, qualquer maquina da rede (ex.: a do laboratorio) poderia publicar mensagens e criar dinheiro.
+# Um container criado por uma versao anterior deste script (portas abertas) e recriado - o volume
+# (filas e mensagens) e preservado.
+if ($existe) {
+    $portas = (& docker port $nome) -join " "
+    if ($portas -match "0\.0\.0\.0" -or $portas -match "\[::\]") {
+        Write-Host "Container antigo com as portas abertas para a rede - recriando com as portas so em 127.0.0.1 (volume preservado)..."
+        & docker rm -f $nome | Out-Null
+        $existe = $null
+    }
+}
+
 if (-not $existe) {
     Write-Host "Criando o container $nome ($imagem)..."
     & docker volume create $volume | Out-Null
     # Em alguns ambientes Windows/WSL o volume nasce com dono root e o RabbitMQ cai com
     # "eacces" ao ler .erlang.cookie - ajustar o dono antes de subir resolve.
     & docker run --rm -v "${volume}:/var/lib/rabbitmq" --user root --entrypoint chown $imagem -R rabbitmq:rabbitmq /var/lib/rabbitmq | Out-Null
-    & docker run -d --name $nome -p 5672:5672 -p 15672:15672 -v "${volume}:/var/lib/rabbitmq" $imagem | Out-Null
+    & docker run -d --name $nome -p 127.0.0.1:5672:5672 -p 127.0.0.1:15672:15672 -v "${volume}:/var/lib/rabbitmq" $imagem | Out-Null
 } else {
     & docker start $nome | Out-Null
 }
