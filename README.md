@@ -156,6 +156,58 @@ Conta 0 e 3 → Agência 0 (porta 4047); conta 1 → Agência 1 (4048); conta 2 
 .\demo-auth.ps1
 ```
 
+**Passo 8 — demonstração do Sprint 2 (mensageria, resiliência, dead-letter)** — tudo em PowerShell, na raiz do repositório, depois dos passos 3 e 5 (a variável `$h` e as contas vêm do passo 5; se abrir um terminal novo, repita as 2 primeiras linhas do passo 5).
+
+*8.1 — Transferência assíncrona entre agências* (conta 0 na Agência 0 → conta 1 na Agência 1). O `200` significa "o broker aceitou"; o crédito é aplicado logo depois:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:4047/transferencias" -Method Post -ContentType "application/json" -Headers $h -Body '{"idOrigem":0,"idDestino":1,"valor":30}'
+Invoke-RestMethod -Uri "http://localhost:4048/contas/1" -Headers $h        # saldo da conta 1 subiu 30
+Get-Content agencia\data\agencia-0.jsonl -Tail 2                           # DEBITO [2,0,0] e PUBLICADA [3,0,0]
+Get-Content agencia\data\agencia-1.jsonl -Tail 1                           # CREDITO_REMOTO [3,2,0]
+```
+
+*8.2 — Resiliência: a agência de destino cai e volta.* Feche a **janela da Agência 1** (o X) e rode:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:4047/transferencias" -Method Post -ContentType "application/json" -Headers $h -Body '{"idOrigem":0,"idDestino":1,"valor":200}'   # responde 200 mesmo com a Agência 1 fora
+```
+Abra http://localhost:15672 (`guest`/`guest`) → **Queues**: a `fila-agencia-1` mostra **1 mensagem pronta e 0 consumidores** (o painel atualiza a cada ~5 s). Suba a Agência 1 de novo (`cd agencia; java -jar target\agencia-1.0.0.jar --spring.profiles.active=agencia1`) e veja o log dela: `CREDITO_REMOTO_FALHOU` — **a conta 1 sumiu** (memória). A mensagem não se perdeu: está na `fila-creditos-mortos`.
+
+*8.3 — Funcionalidade adicional: dead-letter com reprocessamento:*
+
+```powershell
+$token = (Invoke-RestMethod -Uri "http://localhost:4048/auth/login" -Method Post -ContentType "application/json" -Body '{"username":"gustavo","password":"senha123"}').token; $h = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri "http://localhost:4048/mensagens-mortas" -Headers $h                     # lista o crédito de 200 retido
+Invoke-RestMethod -Uri "http://localhost:4048/contas" -Method Post -ContentType "application/json" -Headers $h -Body '{"id":1,"titular":"Bruno","saldoInicial":500}'   # recria a conta
+Invoke-RestMethod -Uri "http://localhost:4048/mensagens-mortas/reprocessar" -Method Post -Headers $h   # {"reprocessadas":1,"pendentes":0}
+Invoke-RestMethod -Uri "http://localhost:4048/contas/1" -Headers $h                             # saldo 500 + 200 = 700
+```
+
+*8.4 — Entrega duplicada não duplica o crédito* (publica a **mesma** mensagem 2× direto no RabbitMQ; o saldo da conta 1 sobe só 10):
+
+```powershell
+$auth = @{ Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("guest:guest")) }
+$id = [guid]::NewGuid().ToString()
+$msg = @{ properties = @{ delivery_mode = 2 }; routing_key = "agencia.1.creditar"; payload_encoding = "string"
+          payload = '{"idMensagem":"' + $id + '","idConta":1,"valor":10,"vetorEnvio":[9,0,0],"origemAgencia":0,"idContaOrigem":0}' } | ConvertTo-Json -Depth 4
+1..2 | ForEach-Object { Invoke-RestMethod -Uri "http://localhost:15672/api/exchanges/%2F/iceibank.eventos/publish" -Method Post -Headers $auth -ContentType "application/json" -Body $msg }
+Invoke-RestMethod -Uri "http://localhost:4048/contas/1" -Headers $h        # +10 uma vez só
+Get-Content agencia\data\agencia-1.jsonl -Tail 2                           # CREDITO_REMOTO e CREDITO_REMOTO_DUPLICADO
+```
+
+*8.5 — Broker fora do ar: 503 com débito estornado, e o retry funciona:*
+
+```powershell
+docker stop rabbitmq-iceibank
+Invoke-RestMethod -Uri "http://localhost:4047/transferencias" -Method Post -ContentType "application/json" -Headers $h -Body '{"idOrigem":0,"idDestino":2,"valor":50,"idOperacao":"demo-1"}'   # erro 503
+Invoke-RestMethod -Uri "http://localhost:4047/contas/0" -Headers $h        # saldo igual ao de antes (débito estornado)
+docker start rabbitmq-iceibank                                             # espere ~20 s
+Invoke-RestMethod -Uri "http://localhost:4047/transferencias" -Method Post -ContentType "application/json" -Headers $h -Body '{"idOrigem":0,"idDestino":2,"valor":50,"idOperacao":"demo-1"}'   # agora funciona (mesmo idOperacao)
+```
+
+Depois de qualquer um desses, rode `.\linha-do-tempo.ps1` (passo 6): ele mostra os pares **concorrentes** e confirma que cada envio → recebimento é **causal**.
+
 **Para parar tudo:** feche as janelas das agências (ou `Ctrl+C` em cada uma) e `Ctrl+C` no terminal do frontend.
 
 ## Como clonar (leia antes — evita o erro `Filename too long`)
