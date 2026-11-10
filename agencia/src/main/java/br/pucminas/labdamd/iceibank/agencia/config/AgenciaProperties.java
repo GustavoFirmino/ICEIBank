@@ -29,6 +29,11 @@ public record AgenciaProperties(int id, int totalAgencias, int portaBase) {
         return (int) (idConta % totalAgencias);
     }
 
+    /** Sprint 3: URL base de uma agencia (as 3 rodam na mesma maquina; porta = portaBase + id). */
+    public String urlDaAgencia(int idAgencia) {
+        return "http://localhost:" + (portaBase + idAgencia);
+    }
+
     public boolean pertenceAEstaAgencia(long idConta) {
         return agenciaResponsavel(idConta) == id;
     }

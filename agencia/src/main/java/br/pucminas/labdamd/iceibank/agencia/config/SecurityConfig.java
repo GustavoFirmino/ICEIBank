@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .requestMatchers(SecurityPaths.LOGIN).permitAll()
                         // /design-system e so referencia de design (nao e dado de conta) - publica de proposito.
                         .requestMatchers(SecurityPaths.DESIGN_SYSTEM).permitAll()
+                        // Sprint 3: eleicao/coordenador/lider do Bully - agencias nao tem JWT entre si.
+                        .requestMatchers(SecurityPaths.BULLY).permitAll()
                         // /error e para onde o Spring encaminha uma rota INEXISTENTE. Sem liberar, um
                         // usuario autenticado que chamasse uma rota que nao existe (ex.: a antiga
                         // creditar-remoto) receberia 403 em vez de 404. Nao expoe dado nenhum: so o status.

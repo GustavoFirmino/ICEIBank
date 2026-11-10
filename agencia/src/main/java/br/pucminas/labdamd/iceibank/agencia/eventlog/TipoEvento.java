@@ -24,5 +24,17 @@ public enum TipoEvento {
     CREDITO_REMOTO_DUPLICADO,
     /** Funcionalidade adicional: um credito que estava na dead-letter queue foi republicado para nova tentativa. */
     CREDITO_REMOTO_REPROCESSADO,
-    LOGIN
+    LOGIN,
+    /** Sprint 3 (Bully): esta agencia iniciou uma eleicao. */
+    ELEICAO_INICIADA,
+    /** Sprint 3 (Bully): esta agencia recebeu uma eleicao de uma agencia de ID menor. */
+    ELEICAO_RECEBIDA,
+    /** Sprint 3 (Bully): nenhuma agencia de ID maior respondeu - esta agencia assumiu a lideranca. */
+    TORNOU_LIDER,
+    /** Sprint 3 (Bully): esta agencia recebeu o anuncio de coordenador (quem e a lider). */
+    LIDER_ANUNCIADO,
+    /** Sprint 3 (Bully): o heartbeat detectou que a lider conhecida nao respondeu. */
+    LIDER_NAO_RESPONDEU,
+    /** Sprint 3 (offline-first): operacao feita offline pelo app foi aplicada na sincronizacao. */
+    SINCRONIZACAO_OFFLINE
 }

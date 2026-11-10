@@ -19,7 +19,13 @@ public final class SecurityPaths {
     public static final String LOGIN = "/auth/login";
     public static final String DESIGN_SYSTEM = "/design-system";
 
-    public static final List<String> PUBLICAS = List.of(LOGIN, DESIGN_SYSTEM);
+    /**
+     * Sprint 3: mensagens do Bully trocadas ENTRE agencias (e lidas pelo app para mostrar a lider).
+     * Agencias nao tem usuario/JWT entre si, entao estas rotas sao publicas - ver a pergunta 5.5.3.
+     */
+    public static final String BULLY = "/bully/**";
+
+    public static final List<String> PUBLICAS = List.of(LOGIN, DESIGN_SYSTEM, BULLY);
 
     private SecurityPaths() {
     }
