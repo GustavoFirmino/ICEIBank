@@ -9,11 +9,29 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 | Sprint | Unidade | Tecnologia | Conceito de SD |
 |---|---|---|---|
 | 1 | U2 - Desenvolvimento Web | API REST/MVC (Spring Boot) + React | Relógio lógico de Lamport |
-| **2 (este)** | U3 - Comunicação indireta | Mensageria / Pub-Sub (RabbitMQ) | Relógio vetorial |
-| 3 | U4 - Desenvolvimento Móvel | App Flutter | Consenso (eleição de líder) |
+| 2 | U3 - Comunicação indireta | Mensageria / Pub-Sub (RabbitMQ) | Relógio vetorial |
+| **3 (este)** | U4 - Desenvolvimento Móvel | App Flutter | Consenso (eleição de líder — Bully) |
 | 4 | U5 - Computação em Nuvem | Containers | Transações distribuídas (2PC/Saga) |
 
-## Sprint 2 — escopo (este sprint)
+## Sprint 3 — escopo (este sprint)
+
+- **Algoritmo de Bully** nas 3 agências: mensagens de eleição e de coordenador (`POST /bully/eleicao`, `POST /bully/coordenador`, `GET /bully/lider`, rotas públicas). A agência ativa de maior ID é sempre a líder; a eleição roda em outra thread para a resposta HTTP não estourar o timeout de quem perguntou.
+- **Heartbeat e failover automático:** cada agência checa a líder a cada 3 s; se ela não responde, esquece-a e reelege. **Funcionalidade adicional:** intervalo e timeout configuráveis (`bully.heartbeat-ms`, `bully.timeout-ms`, `bully.habilitado`).
+- **`historico-lideranca.ps1`:** reconstrói a linha do tempo de lideranças a partir dos logs das 3 agências.
+- **Sincronização offline-first no backend:** `GET /contas/{id}` devolve também o `vetorAtual`; `POST /contas/{id}/sincronizar` aplica uma operação feita offline só se o vetor da agência ainda for o que o app conhecia — senão responde **409** com o estado atual.
+- **App Flutter (`app_mobile/`):** fluxo bancário completo, **painel da líder** atualizado sozinho (inclusive no failover) e modo **offline-first** (Hive, fila de pendentes, UI otimista, sincronização automática, conflito tratado de forma visível). Ver [`app_mobile/README.md`](app_mobile/README.md).
+- **Ainda em aberto (de propósito):** a líder é só informativa (coordenará o 2PC no Sprint 4); transferência não funciona offline; o app não foi executado em emulador Android nesta máquina (os prints foram feitos com o app em web — ver `RESPOSTAS.md`).
+
+### Como demonstrar o Sprint 3
+
+```powershell
+.\iniciar-agencias.ps1        # sobe as 3 agências (a líder será a 2); feche a janela da 2 e a 1 assume em ~3 s
+.\historico-lideranca.ps1     # linha do tempo de líderes
+powershell -NoProfile -ExecutionPolicy Bypass -File .\demo-sprint3.ps1   # cenários reais + prints do backend
+cd app_mobile; flutter test; flutter run -d chrome --web-port 5173       # app (5173 = origem liberada no CORS)
+```
+
+## Sprint 2 — escopo
 
 No Sprint 1, a transferência entre agências era uma **chamada REST direta**: se a agência de destino estivesse fora do ar, a chamada falhava e o débito ficava pendurado. Agora ela é **assíncrona, por mensageria**:
 
@@ -45,12 +63,16 @@ ICEIBank/
 ├── agencia/               Serviço Spring Boot (Java 17) — inclui o Maven Wrapper (mvnw.cmd)
 ├── frontend/              Interface web (React + Vite)
 ├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro do Sprint 1
+├── app_mobile/            App Flutter (Sprint 3): fluxo bancário, painel da líder, offline-first
 ├── evidencias/sprint2/    Prints de execução exigidos pelo roteiro do Sprint 2
+├── evidencias/sprint3/    Prints do Sprint 3 (backend e app) — ver o README da pasta
 ├── iniciar-rabbitmq.ps1   Sobe o RabbitMQ local (Docker) — Sprint 2
 ├── iniciar-agencias.ps1   Sobe as 3 agências em 3 janelas do PowerShell
 ├── linha-do-tempo.ps1     Roda o MesclarLogs (linha do tempo causal) direto do .jar
+├── historico-lideranca.ps1  Linha do tempo de lideranças (Bully) — Sprint 3
+├── demo-sprint3.ps1       Cenários reais do Sprint 3 + geração dos prints do backend
 ├── demo-auth.ps1          Mostra os 3 cenários de JWT (sem token / válido / expirado)
-├── RESPOSTAS.md           Respostas às perguntas de reflexão dos roteiros (Sprint 1 e 2)
+├── RESPOSTAS.md           Respostas às perguntas de reflexão dos roteiros (Sprints 1, 2 e 3)
 ├── FLUXO-DE-EXECUCAO.md   Atividade de recapitulação (mensageria, Pub/Sub e relógio vetorial)
 └── README.md
 ```
@@ -339,6 +361,7 @@ Funcionalidades e principais decisões do projeto (≈10 min), gravado em 07/09/
 
 ## Documentação
 
+- **Sprint 3:** respostas das Partes A a F e o checklist estão no fim de [`RESPOSTAS.md`](RESPOSTAS.md); evidências em [`evidencias/sprint3/`](evidencias/sprint3).
 - **Sprint 2 — Fluxo de Execução** (recapitulação sobre mensageria, Pub/Sub e relógio vetorial, respondida com base no código e em execuções reais): [`FLUXO-DE-EXECUCAO.md`](FLUXO-DE-EXECUCAO.md).
 - Respostas às perguntas de cada parte do roteiro, decisões de design (login, autenticação entre agências) e descrição das funcionalidades adicionais: [`RESPOSTAS.md`](RESPOSTAS.md).
 - Evidências de execução: [`evidencias/sprint1/`](evidencias/sprint1) e [`evidencias/sprint2/`](evidencias/sprint2). Os prints de API/terminal foram gerados a partir da **saída real** dos comandos (executados contra as 3 agências rodando, com `Get-Date` no início de cada um) e os do frontend a partir do app React rodando de verdade — nenhum resultado foi editado ou montado à mão.
