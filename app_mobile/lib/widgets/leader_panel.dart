@@ -67,7 +67,7 @@ class LeaderPanel extends StatelessWidget {
                   const Divider(),
                   Text('Últimas trocas de liderança', style: Theme.of(context).textTheme.labelMedium),
                   for (final t in leader.trocas.take(3))
-                    Text('${_hora(t.quando)}  ${t.de == null ? '—' : 'Ag. ${t.de}'} → ${t.para == null ? 'sem líder' : 'Ag. ${t.para}'}',
+                    Text('${_hora(t.quando)}  ${t.de == null ? 'sem líder' : 'Ag. ${t.de}'} passou para ${t.para == null ? 'sem líder' : 'Ag. ${t.para}'}',
                         style: Theme.of(context).textTheme.bodySmall),
                 ],
               ],

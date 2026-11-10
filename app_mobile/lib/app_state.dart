@@ -203,6 +203,7 @@ class AppState extends ChangeNotifier {
         tipo: tipo,
         valor: valor,
         vetorConhecido: cache.vetorAtual,
+        saldoConhecido: cache.saldo,
         criadaEm: DateTime.now(),
       ));
     await store.salvarPendentes(lista);
@@ -240,43 +241,64 @@ class AppState extends ChangeNotifier {
       final contasComFila = todas.where((o) => o.estado == EstadoOperacao.pendente).map((o) => o.contaId).toSet();
       for (final contaId in contasComFila) {
         List<int>? vetorEncadeado;
+        int? saldoEncadeado;
+        var interromper = false;
         for (final op in todas.where((o) => o.contaId == contaId).toList()) {
+          if (interromper) break;
           if (op.estado == EstadoOperacao.conflito) break; // as seguintes dependem dela: esperam a decisao
           if (op.estado != EstadoOperacao.pendente) continue;
-          try {
-            final base = agencias[agenciaDaConta(contaId)].baseUrl;
-            final conta = await api.sincronizar(
-                base, _tokenOuErro, contaId, op.tipo, op.valor, vetorEncadeado ?? op.vetorConhecido);
-            await store.salvarConta(conta);
-            vetorEncadeado = conta.vetorAtual;
-            todas.remove(op);
-            contasOffline.remove(contaId);
-            aplicadas++;
-          } on ApiException catch (e) {
-            if (e.semConexao) {
-              contasOffline.add(contaId);
-              await store.salvarPendentes(todas);
-              notifyListeners();
-              return; // tenta de novo na proxima oportunidade
-            }
-            if (e.naoAutorizado) {
-              await store.salvarPendentes(todas);
-              await _tokenExpirou();
-              return;
-            }
-            if (e.conflito) {
-              final atual = e.corpo?['contaAtual'];
-              op.estado = EstadoOperacao.conflito;
-              op.mensagem = e.mensagem;
-              if (atual is Map) {
-                op.contaServidor = Conta.fromJson(atual.cast<String, dynamic>());
-                await store.salvarConta(op.contaServidor!); // o cache passa a refletir o estado REAL
+          var vetorUsado = vetorEncadeado ?? op.vetorConhecido;
+          var retentou = false;
+          while (true) {
+            try {
+              final base = agencias[agenciaDaConta(contaId)].baseUrl;
+              final conta = await api.sincronizar(base, _tokenOuErro, contaId, op.tipo, op.valor, vetorUsado);
+              await store.salvarConta(conta);
+              vetorEncadeado = conta.vetorAtual;
+              saldoEncadeado = conta.saldo;
+              todas.remove(op);
+              contasOffline.remove(contaId);
+              aplicadas++;
+              break;
+            } on ApiException catch (e) {
+              if (e.semConexao) {
+                contasOffline.add(contaId);
+                await store.salvarPendentes(todas);
+                notifyListeners();
+                return; // tenta de novo na proxima oportunidade
               }
-              conflitos++;
+              if (e.naoAutorizado) {
+                await store.salvarPendentes(todas);
+                await _tokenExpirou();
+                return;
+              }
+              contasOffline.remove(contaId); // a agencia RESPONDEU (so recusou): nao estamos mais offline
+              if (e.conflito) {
+                final atual = e.corpo?['contaAtual'];
+                final real = atual is Map ? Conta.fromJson(atual.cast<String, dynamic>()) : null;
+                // "Falso conflito": o vetor da agencia avancou (ex.: eleicao do Bully, operacao de OUTRA conta),
+                // mas o saldo desta conta e exatamente o que a pessoa tinha visto ao decidir. Nesse caso a
+                // decisao dela continua valida e o app repete UMA vez com o vetor novo, sem incomodar.
+                final esperado = saldoEncadeado ?? op.saldoConhecido;
+                if (real != null && !retentou && esperado != null && real.saldo == esperado) {
+                  retentou = true;
+                  vetorUsado = real.vetorAtual;
+                  continue;
+                }
+                op.estado = EstadoOperacao.conflito;
+                op.mensagem = e.mensagem;
+                if (real != null) {
+                  op.contaServidor = real;
+                  await store.salvarConta(real); // o cache passa a refletir o estado REAL
+                }
+                conflitos++;
+                interromper = true;
+                break;
+              }
+              op.estado = EstadoOperacao.rejeitada; // ex.: saldo insuficiente de verdade
+              op.mensagem = e.mensagem;
               break;
             }
-            op.estado = EstadoOperacao.rejeitada; // ex.: saldo insuficiente de verdade
-            op.mensagem = e.mensagem;
           }
         }
       }

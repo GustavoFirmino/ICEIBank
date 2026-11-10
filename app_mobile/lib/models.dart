@@ -48,6 +48,7 @@ class OperacaoPendente {
     required this.valor,
     required this.vetorConhecido,
     required this.criadaEm,
+    this.saldoConhecido,
     this.estado = EstadoOperacao.pendente,
     this.mensagem,
     this.contaServidor,
@@ -61,6 +62,9 @@ class OperacaoPendente {
   /// Vetor da agencia na ultima vez em que o app leu a conta.
   List<int> vetorConhecido;
   final DateTime criadaEm;
+
+  /// Ultimo saldo confirmado pela agencia que o app tinha ao registrar a operacao (base da decisao da pessoa).
+  final int? saldoConhecido;
   EstadoOperacao estado;
   String? mensagem;
 
@@ -77,6 +81,7 @@ class OperacaoPendente {
         'valor': valor,
         'vetorConhecido': vetorConhecido,
         'criadaEm': criadaEm.toIso8601String(),
+        'saldoConhecido': saldoConhecido,
         'estado': estado.name,
         'mensagem': mensagem,
         'contaServidor': contaServidor?.toJson(),
@@ -89,6 +94,7 @@ class OperacaoPendente {
         valor: (j['valor'] as num).toInt(),
         vetorConhecido: (j['vetorConhecido'] as List).map((e) => (e as num).toInt()).toList(),
         criadaEm: DateTime.parse(j['criadaEm'] as String),
+        saldoConhecido: (j['saldoConhecido'] as num?)?.toInt(),
         estado: EstadoOperacao.values.byName(j['estado'] as String),
         mensagem: j['mensagem'] as String?,
         contaServidor: j['contaServidor'] == null

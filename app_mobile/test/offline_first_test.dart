@@ -74,7 +74,13 @@ class ConectividadeFalsa implements ConnectivityMonitor {
   void emitir(bool v) => _c.add(v);
 }
 
-Future<void> deixarProcessar() => Future<void>.delayed(const Duration(milliseconds: 50));
+/// Espera (ate 3 s) a condicao ficar verdadeira: os eventos de conectividade sao assincronos.
+Future<void> esperarAte(bool Function() condicao) async {
+  final fim = DateTime.now().add(const Duration(seconds: 3));
+  while (!condicao() && DateTime.now().isBefore(fim)) {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  }
+}
 
 void main() {
   late AgenciasFalsas servidor;
@@ -129,7 +135,7 @@ void main() {
 
     servidor.noAr = true;
     rede.emitir(true); // evento de conectividade: nenhuma chamada a sincronizar() pelo teste
-    await deixarProcessar();
+    await esperarAte(() => app.pendentes(0).isEmpty);
 
     expect(app.pendentes(0), isEmpty);
     expect(servidor.saldo, 150);
@@ -181,12 +187,28 @@ void main() {
     await app.operar(0, TipoOperacao.deposito, 5);
     servidor.noAr = true;
     servidor.vetor = [9, 1, 0];
+    servidor.saldo = 101; // mudou DE VERDADE enquanto offline
     await app.sincronizar();
+    expect(app.pendentes(0).single.estado, EstadoOperacao.conflito);
 
     await app.resolverConflito(app.pendentes(0).single, aplicar: false);
 
     expect(app.pendentes(0), isEmpty);
-    expect(servidor.saldo, 100);
+    expect(servidor.saldo, 101);
+  });
+
+  test('falso conflito: o vetor avancou (ex.: eleicao do Bully) mas o saldo e o que a pessoa viu -> repete sozinho', () async {
+    await app.atualizarConta(0); // saldo 100, vetor [5,1,0]
+    servidor.noAr = false;
+    await app.operar(0, TipoOperacao.saque, 30);
+    servidor.noAr = true;
+    servidor.vetor = [9, 1, 0]; // so o vetor andou (eventos de eleicao); o saldo continua 100
+
+    await app.sincronizar();
+
+    expect(app.pendentes(0), isEmpty, reason: 'nao deve incomodar a pessoa com um conflito que nao e de saldo');
+    expect(servidor.saldo, 70);
+    expect(servidor.chamadas.where((c) => c.contains('/sincronizar')).length, 2, reason: '1 tentativa recusada + 1 repeticao automatica');
   });
 
   test('saque offline maior que o saldo provisorio e recusado na hora (risco da UI otimista)', () async {
