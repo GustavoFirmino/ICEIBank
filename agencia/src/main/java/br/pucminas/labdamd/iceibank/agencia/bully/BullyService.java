@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -65,6 +67,11 @@ public class BullyService {
         t.setDaemon(true);
         return t;
     });
+    private final ScheduledExecutorService agendador = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "bully-heartbeat");
+        t.setDaemon(true);
+        return t;
+    });
     private final AtomicBoolean eleicaoEmAndamento = new AtomicBoolean(false);
 
     /** null = nenhuma lider conhecida. */
@@ -88,10 +95,45 @@ public class BullyService {
             return;
         }
         executor.submit(this::iniciarEleicao);
+        iniciarHeartbeat();
+    }
+
+    // --- heartbeat e failover (Parte B) -------------------------------------------------------------------
+
+    private void iniciarHeartbeat() {
+        agendador.scheduleWithFixedDelay(() -> {
+            try {
+                verificarLider();
+            } catch (RuntimeException e) {
+                log.warn("Falha no heartbeat do Bully", e); // uma excecao nao pode matar o agendamento
+            }
+        }, propriedades.heartbeatMs(), propriedades.heartbeatMs(), TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Uma rodada do heartbeat: sem lider conhecida -> elege; sou eu a lider -> nada a verificar; senao pergunta
+     * a lider conhecida (GET /bully/lider) e, se nao responder dentro do timeout, esquece-a e reelege.
+     */
+    public void verificarLider() {
+        Integer lider = liderAtual;
+        if (lider == null) {
+            iniciarEleicao();
+            return;
+        }
+        if (lider == agencia.id()) {
+            return;
+        }
+        if (!lerLider(lider)) {
+            eventLog.registrar(TipoEvento.LIDER_NAO_RESPONDEU, relogio.eventoLocal(), null,
+                    Map.of("liderAtual", lider, "agencia", agencia.id()));
+            liderAtual = null;
+            iniciarEleicao();
+        }
     }
 
     @PreDestroy
     public void encerrar() {
+        agendador.shutdownNow();
         executor.shutdownNow();
     }
 
@@ -166,6 +208,22 @@ public class BullyService {
     }
 
     // --- HTTP ---------------------------------------------------------------------------------------------
+
+    /** GET /bully/lider na agencia dada: true se respondeu 2xx dentro do timeout. */
+    private boolean lerLider(int idDestino) {
+        try {
+            HttpRequest requisicao = HttpRequest.newBuilder(URI.create(agencia.urlDaAgencia(idDestino) + "/bully/lider"))
+                    .timeout(Duration.ofMillis(propriedades.timeoutMs()))
+                    .GET()
+                    .build();
+            return http.send(requisicao, HttpResponse.BodyHandlers.discarding()).statusCode() / 100 == 2;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     /** POST JSON em outra agencia. true = respondeu 2xx dentro do timeout; false = fora do ar / lenta / erro. */
     private boolean postar(int idDestino, String caminho, Map<String, Object> corpo) {
