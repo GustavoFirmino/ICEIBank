@@ -13,3 +13,7 @@ dist/
 # Sistema
 Thumbs.db
 desktop.ini
+
+# Sprint 3: logs das agencias gerados pelo demo-sprint3.ps1 e copias dos logs antigos
+evidencias/sprint3/logs-agencias/
+agencia/data/backup-*/

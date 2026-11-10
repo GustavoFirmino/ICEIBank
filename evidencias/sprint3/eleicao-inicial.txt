@@ -1,0 +1,14 @@
+﻿PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Get-Date
+segunda-feira, 09 de novembro de 2026 22:16:11
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         0          2
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4048/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         1          2
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4049/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         2          2

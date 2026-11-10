@@ -1,0 +1,27 @@
+﻿PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Get-Date
+segunda-feira, 09 de novembro de 2026 22:16:12
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         0          2
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4048/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         1          2
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4049/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         2          2
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Stop-Process -Id <processo da agencia 2> -Force    # derruba a lider
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Get-Date
+segunda-feira, 09 de novembro de 2026 22:16:12
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Get-Date    # 10 segundos depois
+segunda-feira, 09 de novembro de 2026 22:16:22
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         0          1
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4048/bully/lider" -Method Get
+idAgencia liderAtual
+---------- ----------
+         1          1

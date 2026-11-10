@@ -287,3 +287,89 @@ Conferido item a item a partir de um **clone limpo** do repositório (`git clone
 - [x] Atividade de recapitulação (Fluxo de Execução) respondida — [`FLUXO-DE-EXECUCAO.md`](FLUXO-DE-EXECUCAO.md)
 
 **Declaração de uso de IA (nota de transparência do roteiro):** usei o Claude (Anthropic) como apoio para rascunhar, implementar, revisar e testar código e texto ao longo do sprint. Todo o código entregue foi executado e verificado por mim nesta máquina — testes automatizados e execuções reais contra um RabbitMQ real — e consigo explicar e defender qualquer trecho.
+
+---
+
+# Respostas — ICEIBank, Sprint 3 (backend: Bully, histórico e sincronização)
+
+> Estado deste documento: cobre as **Partes A, B, C e E** (backend, Java/Spring). As Partes **D e F** (app Flutter) e as respectivas perguntas (8.3 e 10.3) ainda serão acrescentadas quando o app existir. Todos os números abaixo vêm de uma execução real das 3 agências (`.\demo-sprint3.ps1`); a saída bruta está em [`evidencias/sprint3/*.txt`](evidencias/sprint3).
+
+## Decisões de implementação (backend em Java)
+
+- **Onde está:** `bully/BullyService` (eleição, coordenador, heartbeat), `bully/BullyController` (`POST /bully/eleicao`, `POST /bully/coordenador`, `GET /bully/lider`), `ferramentas/HistoricoLideranca` (Parte C) e `ContaService.sincronizarOperacaoPendente` + `POST /contas/{id}/sincronizar` (Parte E).
+- **A eleição roda em outra thread.** `receberEleicao` responde 200 na hora ("estou viva") e a eleição própria roda em um executor. Se rodasse na thread HTTP, a resposta só sairia depois da eleição inteira e estouraria o timeout de quem perguntou (que concluiria, errado, que ninguém respondeu). No Node do roteiro isso era automático (`iniciarEleicao()` sem `await`); em Java foi preciso fazer de propósito.
+- **Concorrência:** `liderAtual` é `volatile` (escrito pelo heartbeat/eleições, lido pelas threads do Tomcat); `eleicaoEmAndamento` é `AtomicBoolean` com `compareAndSet`, o que impede duas eleições simultâneas na mesma agência.
+- **Rotas `/bully/**` são públicas (sem JWT)**, pois as agências não têm usuário entre si e o app precisa ler a líder (ver pergunta 5.5.3). O resto da API continua exigindo JWT.
+- **O vetor atual já existia** (`RelogioVetorialService.valorAtual()`, não incrementa nada) — usei ele no lugar de criar `obterVetorAtual`; e `Vetores.comparar` (Sprint 2) no lugar de um novo `compararVetores`.
+- **`GET /contas/{id}` agora devolve também `vetorAtual`** (campo a mais, o frontend web ignora — sem regressão).
+
+## Parte A — Mensagens de eleição e coordenador
+
+Evidência: [`eleicao-inicial.png`](evidencias/sprint3/eleicao-inicial.png) — as 3 agências respondem `liderAtual = 2`.
+
+**1. Por que o Bully elege o maior ID? A regra invertida mudaria o resultado?**
+Porque o algoritmo só precisa de uma **ordem total** entre os processos que todos conheçam, e o maior ID é a convenção de Garcia-Molina: cada agência só consulta quem tem ID *maior* que o seu, então a que não recebe resposta de ninguém "acima" dela sabe que é a maior ativa. Se a regra fosse invertida (consultar IDs menores, eleger o menor), seria igualmente correto — o importante é que a relação seja total e igual para todos; só mudaria *quem* ganha (a agência 0 em vez da 2) e a direção das mensagens. O ID não carrega "mérito": poderia ser qualquer critério (carga, uptime), desde que comparável e único.
+
+**2. Mais de um `TORNOU_LIDER` na subida: bug ou esperado?**
+**Esperado.** No histórico real aparecem 3 `TORNOU_LIDER` da agência 2 em ~300 ms (01:16:02.788, 01:16:03.073 e 01:16:03.090). Cada vez que a 2 recebe uma `ELEICAO_RECEBIDA` (de 0 e de 1), ela inicia a própria eleição, ninguém acima dela responde e ela se declara líder de novo e reanuncia. É a "tempestade" da regra 4 do roteiro: toda agência menor que pergunta provoca uma eleição na maior. Nenhuma outra agência chegou a se declarar líder, e o estado final é idêntico (2 é líder nas três), então o resultado é correto; só há trabalho redundante.
+
+**3. `/bully/eleicao` sem autenticação é um problema de segurança real?**
+Para este projeto (trabalho acadêmico, 3 processos em `localhost`) o risco é baixo, mas em um sistema real **é um problema**: qualquer um que ache a URL pode (a) disparar eleições em loop (negação de serviço: cada eleição gera tráfego e eventos de log) ou (b) enviar `POST /bully/coordenador` dizendo que a líder é outra agência e **sequestrar a liderança** — grave no Sprint 4, quando a líder coordenar transações. A mitigação seria autenticar a comunicação entre agências (mTLS ou um segredo compartilhado/JWT de serviço, como era a `X-Internal-Key` do Sprint 1) e restringir `/bully/**` à rede interna; deixei sem porque o próprio roteiro define essas rotas abertas e o app precisa de `GET /bully/lider`.
+
+## Parte B — Heartbeat e failover
+
+Evidência: [`failover.png`](evidencias/sprint3/failover.png) (a líder 2 é derrubada às 22:16:12; às 22:16:22 as agências 0 e 1 concordam que a líder é a **1**) e [`lider-volta.png`](evidencias/sprint3/lider-volta.png) (a 2 volta, inicia eleição ao subir e retoma a liderança — as três voltam a responder `2`). No log: `LIDER_NAO_RESPONDEU` da agência 0 às 01:16:14.71, ~2,5 s depois da queda, e a nova líder anunciada em 25 ms.
+
+**1. Heartbeat de 100 ms ou de 60 s?**
+Muito curto (100 ms): cada agência faz ~10 requisições/s à líder (e eleições se somam), o que desperdiça rede/CPU e aumenta **falsos positivos** — uma GC pause ou um pico de latência de 1 s já derruba a "líder" e dispara eleição sem necessidade (instabilidade de liderança). Muito longo (60 s): a rede fica quase livre, mas o sistema pode ficar **até 1 minuto sem líder válida** depois de uma queda, e com Sprint 4 (2PC) isso significaria transações paradas. É o trade-off clássico detecção rápida × sobrecarga/falsos alarmes; o padrão de 3 s (configurável, ver extra) detectou a queda em ~2,5 s.
+
+**2. A agência derrubada que volta "toma" a liderança de volta: é desejável?**
+É consequência direta da regra do Bully (o maior ID ativo sempre manda) e simplifica o raciocínio — mas tem custo real: uma **troca de liderança sem necessidade**, com a líder estável sendo destituída justamente por uma agência que acabou de voltar e pode estar com o estado desatualizado. Em um sistema real, se a troca ocorrer no meio de uma operação importante (ex.: a líder coordenando um 2PC), a transação em curso pode ficar com dois coordenadores ou sem nenhum, exigindo recuperação. Sistemas reais tendem a preferir líderes "pegajosos" (Raft só troca de líder quando o atual falha) e a exigir que a recém-chegada primeiro sincronize o estado.
+
+**3. E se a rede estiver só lenta (resposta > 1 s)?**
+O `TIMEOUT_MS` de 1 s não distingue "fora do ar" de "lenta": a agência lenta é tratada como morta. Numa eleição, a de ID maior que respondeu tarde é ignorada e quem perguntou se declara líder → **duas líderes ao mesmo tempo** (split-brain) até a de ID maior anunciar a sua (a regra do Bully acaba corrigindo quando ela completa a própria eleição, mas há uma janela de inconsistência). No heartbeat, uma líder lenta é destituída à toa e uma eleição desnecessária acontece. Por isso o timeout é configurável (`BULLY_TIMEOUT_MS`) e deve ficar bem acima da latência normal.
+
+## Parte C — Observando a eleição
+
+Evidência: [`historico-lideranca.png`](evidencias/sprint3/historico-lideranca.png). Linha do tempo real: 2 (subida, 3 vezes), **1** (após a queda da 2), **2** (quando a 2 volta).
+
+**1. Quantas vezes a liderança mudou de mãos na tempestade da subida? Há custo?**
+**Nenhuma troca de mãos**: as 3 assunções de liderança na subida foram todas da agência 2 (a mudança entre agências diferentes só aconteceu duas vezes, no failover 2→1 e na volta 1→2). Mas houve **17 eventos de eleição em ~0,5 s** (3 `ELEICAO_INICIADA` da 2, as `ELEICAO_RECEBIDA` e vários `LIDER_ANUNCIADO` repetidos) para 3 agências. O custo é de mensagens HTTP, escrita de log e ticks do relógio vetorial — irrelevante com 3 agências, mas cresce com o quadrado do número de processos no pior caso do Bully (O(n²) mensagens).
+
+## Parte E — Sincronização offline-first no backend
+
+Evidência: [`conflito-sincronizacao.png`](evidencias/sprint3/conflito-sincronizacao.png): leitura da conta devolve `vetorAtual [7,2,13]`; um depósito feito "por fora" avança o vetor para `[8,2,13]`; a sincronização com o vetor antigo recebe **409** com `vetorAtual` e `contaAtual` (saldo 110, o saque de 30 **não** foi aplicado); repetindo com `vetorConhecido = [8,2,13]` o saque é aplicado (saldo 80, vetor `[9,2,13]`). Cobertura automatizada em `ContaServiceTest` (6 testes: igual aplica, antigo dá 409 sem aplicar, reenvio com vetor novo aplica, saque sem saldo não consome tick, entrada inválida, conta inexistente).
+
+**1. Por que comparar o vetor inteiro e não só o saldo?**
+Porque o saldo pode ser **igual por coincidência** mesmo com o estado diferente: um depósito de 10 seguido de um saque de 10 devolve o mesmo saldo, mas a conta teve duas operações que o app não viu (e, p.ex., a agência pode ter mudado outros dados, como o histórico). O vetor registra **quantos eventos aconteceram** e, comparando-o, a agência distingue "nada aconteceu" (IGUAIS) de "algo aconteceu" (ANTES/DEPOIS/CONCORRENTES) mesmo quando o saldo não revela nada. Também detecta mudança vinda de outra agência (via mensageria), que avança as outras posições do vetor.
+
+**2. Por que qualquer mudança no vetor é conflito (mesmo de outra conta)? Como ser mais preciso?**
+Porque o vetor é **por agência, não por conta**: ele só diz "esta agência teve mais eventos", sem dizer em qual conta. É uma simplificação que gera **falsos conflitos** — e na prática também por eventos que não são operações bancárias: os eventos do Bully (eleições, `LIDER_NAO_RESPONDEU`) também fazem tick no relógio, então uma reeleição invalida os vetores guardados pelos apps (visto na execução: o vetor `[7,2,13]` logo depois da subida já carrega os ticks das eleições). Para ser preciso seria preciso um **vetor/versão por conta** (um contador por conta e por agência, ou um simples número de versão da conta que só cresce quando *aquela* conta muda), e/ou não contar eventos de controle (Bully) no vetor usado para sincronização.
+
+**3. Ao receber 409, o que o app deve fazer?**
+*(Resposta de design — a decisão final será confirmada na Parte F, quando o app existir.)* Minha escolha: **não descartar nem reenviar às cegas**; guardar a operação como "conflito pendente", atualizar o cache com o estado real devolvido no 409 e **perguntar à pessoa usuária** (mostrando o saldo atual e a operação pendente, com "aplicar mesmo assim" / "descartar"). Em um app bancário, reaplicar automaticamente um saque sobre um saldo que mudou pode causar saldo negativo ou duplicar uma ação que a pessoa já não quer; perguntar é o mais seguro. "Aplicar mesmo assim" usa o `vetorAtual` do 409 como novo `vetorConhecido`.
+
+## Funcionalidade adicional (seção 2.1) — timeouts do Bully configuráveis por variável de ambiente
+
+O intervalo do heartbeat e o timeout de resposta deixaram de ser fixos no código: `bully.heartbeat-ms` (padrão 3000) e `bully.timeout-ms` (padrão 1000), além de `bully.habilitado` (padrão `true`), via `BullyProperties`. Por serem `@ConfigurationProperties`, aceitam variáveis de ambiente do Spring sem mudar código — por exemplo, para uma demonstração mais rápida em sala:
+
+```powershell
+$env:BULLY_HEARTBEAT_MS = "1000"; $env:BULLY_TIMEOUT_MS = "500"; .\iniciar-agencias.ps1
+```
+
+`bully.habilitado=false` desliga eleição e heartbeat (usado para isolar a lógica nos testes). Evidência: o comportamento padrão é o de [`failover.png`](evidencias/sprint3/failover.png); o código está em `config/BullyProperties.java` e é lido por `BullyService`.
+
+## Continuidade (Sprints 1–2)
+
+Os 110 testes anteriores continuam passando (suíte completa: 121, com os 11 novos de Bully e sincronização). A autenticação JWT segue exigida em todas as rotas de conta (somente `/bully/**` é público); mensageria e relógio vetorial não foram alterados, apenas o relógio ganhou novos eventos (os do Bully).
+
+## Checklist parcial do Sprint 3 (backend)
+
+- [x] Mensagens de eleição e coordenador (Parte A) — [`eleicao-inicial.png`](evidencias/sprint3/eleicao-inicial.png)
+- [x] Convergência para a mesma líder mesmo com a tempestade inicial
+- [x] Heartbeat + reeleição automática sem intervenção (Parte B) — [`failover.png`](evidencias/sprint3/failover.png), [`lider-volta.png`](evidencias/sprint3/lider-volta.png)
+- [x] `HistoricoLideranca` / `historico-lideranca.ps1` (Parte C) — [`historico-lideranca.png`](evidencias/sprint3/historico-lideranca.png)
+- [x] Endpoint de sincronização com 409 por vetor, incluindo o caminho de conflito (Parte E) — [`conflito-sincronizacao.png`](evidencias/sprint3/conflito-sincronizacao.png)
+- [x] Funcionalidade adicional documentada (timeouts configuráveis)
+- [ ] App Flutter: fluxo bancário, painel da líder, offline-first (Partes D e F) e os prints `app-*.png`
+- [ ] Perguntas 8.3 e 10.3

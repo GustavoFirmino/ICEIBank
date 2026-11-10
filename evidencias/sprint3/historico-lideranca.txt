@@ -1,0 +1,40 @@
+﻿PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Get-Date
+segunda-feira, 09 de novembro de 2026 22:16:35
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> .\historico-lideranca.ps1
+=== Historico de eventos de eleicao ===
+(2026-11-10T01:16:02.638485100Z) [agencia-0] ELEICAO_INICIADA {idAgencia=0}
+(2026-11-10T01:16:02.666121400Z) [agencia-2] ELEICAO_INICIADA {idAgencia=2}
+(2026-11-10T01:16:02.717513400Z) [agencia-1] ELEICAO_INICIADA {idAgencia=1}
+(2026-11-10T01:16:02.788594800Z) [agencia-2] TORNOU_LIDER {idAgencia=2}
+(2026-11-10T01:16:02.924805200Z) [agencia-0] LIDER_ANUNCIADO {agencia=0, liderId=2}
+(2026-11-10T01:16:03.059906700Z) [agencia-1] LIDER_ANUNCIADO {liderId=2, agencia=1}
+(2026-11-10T01:16:03.059906700Z) [agencia-1] ELEICAO_RECEBIDA {minhaId=1, de=0}
+(2026-11-10T01:16:03.065415400Z) [agencia-2] ELEICAO_RECEBIDA {minhaId=2, de=1}
+(2026-11-10T01:16:03.067718400Z) [agencia-2] ELEICAO_INICIADA {idAgencia=2}
+(2026-11-10T01:16:03.073432900Z) [agencia-2] TORNOU_LIDER {idAgencia=2}
+(2026-11-10T01:16:03.079547900Z) [agencia-0] LIDER_ANUNCIADO {agencia=0, liderId=2}
+(2026-11-10T01:16:03.090895300Z) [agencia-0] LIDER_ANUNCIADO {agencia=0, liderId=2}
+(2026-11-10T01:16:03.090895300Z) [agencia-1] LIDER_ANUNCIADO {liderId=2, agencia=1}
+(2026-11-10T01:16:03.090895300Z) [agencia-2] ELEICAO_RECEBIDA {minhaId=2, de=0}
+(2026-11-10T01:16:03.090895300Z) [agencia-2] ELEICAO_INICIADA {idAgencia=2}
+(2026-11-10T01:16:03.090895300Z) [agencia-2] TORNOU_LIDER {idAgencia=2}
+(2026-11-10T01:16:03.108566600Z) [agencia-1] LIDER_ANUNCIADO {liderId=2, agencia=1}
+(2026-11-10T01:16:14.712571300Z) [agencia-0] LIDER_NAO_RESPONDEU {liderAtual=2, agencia=0}
+(2026-11-10T01:16:14.712571300Z) [agencia-0] ELEICAO_INICIADA {idAgencia=0}
+(2026-11-10T01:16:14.724131500Z) [agencia-1] ELEICAO_RECEBIDA {minhaId=1, de=0}
+(2026-11-10T01:16:14.724131500Z) [agencia-1] ELEICAO_INICIADA {idAgencia=1}
+(2026-11-10T01:16:14.736301900Z) [agencia-1] TORNOU_LIDER {idAgencia=1}
+(2026-11-10T01:16:14.741231200Z) [agencia-0] LIDER_ANUNCIADO {agencia=0, liderId=1}
+(2026-11-10T01:16:26.288957500Z) [agencia-2] ELEICAO_INICIADA {idAgencia=2}
+(2026-11-10T01:16:26.373491500Z) [agencia-2] TORNOU_LIDER {idAgencia=2}
+(2026-11-10T01:16:26.404760200Z) [agencia-0] LIDER_ANUNCIADO {agencia=0, liderId=2}
+(2026-11-10T01:16:26.432840400Z) [agencia-1] LIDER_ANUNCIADO {liderId=2, agencia=1}
+
+=== Linha do tempo de lideres ===
+A partir de 2026-11-10T01:16:02.788594800Z: Agencia 2 e a lider
+A partir de 2026-11-10T01:16:03.073432900Z: Agencia 2 e a lider
+A partir de 2026-11-10T01:16:03.090895300Z: Agencia 2 e a lider
+A partir de 2026-11-10T01:16:14.736301900Z: Agencia 1 e a lider
+A partir de 2026-11-10T01:16:26.373491500Z: Agencia 2 e a lider
+
+A lideranca foi assumida 5 vez(es) (2 troca(s) de lider entre agencias diferentes).

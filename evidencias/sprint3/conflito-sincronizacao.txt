@@ -1,0 +1,14 @@
+﻿PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Get-Date
+segunda-feira, 09 de novembro de 2026 22:16:11
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> $h = @{ Authorization = "Bearer <jwt do login>" }
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/contas" -Method Post -Headers $h -ContentType "application/json" -Body '{"id":0,"titular":"Gustavo","saldoInicial":100}'
+{"id":0,"titular":"Gustavo","saldo":100}
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/contas/0" -Headers $h      # o app guarda o vetorAtual
+{"id":0,"titular":"Gustavo","saldo":100,"vetorAtual":[7,2,13]}
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/contas/0/depositar" -Method Post -Headers $h -ContentType "application/json" -Body '{"valor":10}'   # mudanca "enquanto o app estava offline"
+{"id":0,"titular":"Gustavo","saldo":110}
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-WebRequest -Uri "http://localhost:4047/contas/0/sincronizar" -Method Post -Headers $h -ContentType "application/json" -Body '{"valor":30,"vetorConhecido":[7,2,13],"tipo":"SAQUE"}'   # vetor ANTIGO
+HTTP 409 
+{"erro":"Conflito detectado: o estado da agencia mudou desde a ultima sincronizacao do app.","vetorConhecido":[7,2,13],"vetorAtual":[8,2,13],"contaAtual":{"id":0,"titular":"Gustavo","saldo":110,"vetorAtual":[8,2,13]}}
+PS C:\Users\4337DtiDigital\dev\pessoal\ICEIBank> Invoke-RestMethod -Uri "http://localhost:4047/contas/0/sincronizar" -Method Post -Headers $h -ContentType "application/json" -Body '{"valor":30,"vetorConhecido":[8,2,13],"tipo":"SAQUE"}'   # vetorAtual devolvido no 409
+{"id":0,"titular":"Gustavo","saldo":80,"vetorAtual":[9,2,13]}
