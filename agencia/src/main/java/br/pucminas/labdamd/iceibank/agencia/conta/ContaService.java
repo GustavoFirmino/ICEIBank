@@ -16,6 +16,11 @@ import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.HistoricoEventoResponse;
 import br.pucminas.labdamd.iceibank.agencia.eventlog.EventLogService;
 import br.pucminas.labdamd.iceibank.agencia.eventlog.TipoEvento;
+import br.pucminas.labdamd.iceibank.agencia.clock.RelacaoCausal;
+import br.pucminas.labdamd.iceibank.agencia.clock.Vetores;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ConflitoSincronizacaoException;
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaComVetorResponse;
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.SincronizarRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -60,6 +65,49 @@ public class ContaService {
 
     public ContaResponse consultarSaldo(long id) {
         return ContaResponse.de(buscarOuLancar(id));
+    }
+
+    /** Sprint 3: saldo + vetor atual da agencia, para o app guardar no cache offline. */
+    public ContaComVetorResponse consultarSaldoComVetor(long id) {
+        Conta conta = buscarOuLancar(id);
+        return ContaComVetorResponse.de(conta, relogio.valorAtual());
+    }
+
+    /**
+     * Sprint 3 (offline-first): aplica uma operacao feita offline pelo app, SE o vetor da agencia ainda for
+     * igual ao que o app conhecia (nada aconteceu na agencia desde a ultima leitura). Se o vetor avancou,
+     * recusa com 409 e devolve o estado atual - quem decide o que fazer e o app/usuario.
+     *
+     * Simplificacao assumida (pergunta 9.6.2): o vetor e por AGENCIA, nao por conta; qualquer evento na
+     * agencia (ate de outra conta, ou uma eleicao do Bully) conta como conflito. Entre o teste do vetor e o
+     * tick do relogio existe uma janela minima em que uma operacao concorrente poderia entrar; a
+     * sincronizacao em si e serializada por este metodo ser synchronized.
+     */
+    public synchronized ContaComVetorResponse sincronizarOperacaoPendente(long id, SincronizarRequest request) {
+        Conta conta = buscarOuLancar(id);
+        List<Long> vetorAtual = relogio.valorAtual();
+        List<Long> conhecido = request.vetorConhecido();
+        if (conhecido == null || conhecido.size() != vetorAtual.size()) {
+            throw new DadosInvalidosException("O campo 'vetorConhecido' e obrigatorio e precisa ter "
+                    + vetorAtual.size() + " posicoes.");
+        }
+        if (Vetores.comparar(conhecido, vetorAtual) != RelacaoCausal.IGUAIS) {
+            throw new ConflitoSincronizacaoException(conhecido, vetorAtual, ContaComVetorResponse.de(conta, vetorAtual));
+        }
+
+        TipoEvento tipoOperacao;
+        if ("DEPOSITO".equals(request.tipo())) {
+            conta.depositar(request.valor());
+        } else if ("SAQUE".equals(request.tipo())) {
+            conta.sacar(request.valor()); // 400 se faltar saldo (antes de consumir tick do relogio)
+        } else {
+            throw new DadosInvalidosException("Tipo de operacao pendente nao suportado: " + request.tipo());
+        }
+
+        List<Long> vetor = relogio.eventoLocal();
+        eventLog.registrar(TipoEvento.SINCRONIZACAO_OFFLINE, vetor, id,
+                Map.of("tipo", request.tipo(), "valor", request.valor(), "novoSaldo", conta.saldo()));
+        return ContaComVetorResponse.de(conta, vetor);
     }
 
     public ContaResponse depositar(long id, long valor) {

@@ -6,7 +6,9 @@
  */
 package br.pucminas.labdamd.iceibank.agencia.conta;
 
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaComVetorResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaResponse;
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.SincronizarRequest;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.HistoricoEventoResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.MovimentoRequest;
@@ -32,8 +34,14 @@ public class ContasController {
     }
 
     @GetMapping("/{id}")
-    public ContaResponse consultarSaldo(@PathVariable long id) {
-        return contaService.consultarSaldo(id);
+    public ContaComVetorResponse consultarSaldo(@PathVariable long id) {
+        return contaService.consultarSaldoComVetor(id);
+    }
+
+    /** Sprint 3 (offline-first): aplica uma operacao pendente do app, ou 409 se o vetor da agencia avancou. */
+    @PostMapping("/{id}/sincronizar")
+    public ContaComVetorResponse sincronizar(@PathVariable long id, @RequestBody SincronizarRequest request) {
+        return contaService.sincronizarOperacaoPendente(id, request);
     }
 
     @PostMapping("/{id}/depositar")

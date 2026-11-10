@@ -13,7 +13,10 @@ import br.pucminas.labdamd.iceibank.agencia.common.exceptions.DadosInvalidosExce
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ParticaoInvalidaException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.SaldoInsuficienteException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ValorInvalidoException;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ConflitoSincronizacaoException;
 import org.springframework.http.HttpStatus;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,6 +48,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MensageriaIndisponivelException.class)
     public ResponseEntity<ErroResponse> tratarMensageriaIndisponivel(MensageriaIndisponivelException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ErroResponse(ex.getMessage()));
+    }
+
+    /** Sprint 3: 409 com o estado atual, para o app decidir o que fazer com a operacao pendente. */
+    @ExceptionHandler(ConflitoSincronizacaoException.class)
+    public ResponseEntity<Map<String, Object>> tratarConflitoSincronizacao(ConflitoSincronizacaoException ex) {
+        Map<String, Object> corpo = new LinkedHashMap<>();
+        corpo.put("erro", ex.getMessage());
+        corpo.put("vetorConhecido", ex.vetorConhecido());
+        corpo.put("vetorAtual", ex.vetorAtual());
+        corpo.put("contaAtual", ex.contaAtual());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo);
     }
 
     @ExceptionHandler(ValorInvalidoException.class)

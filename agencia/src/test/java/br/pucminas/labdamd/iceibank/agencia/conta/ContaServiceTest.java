@@ -14,6 +14,8 @@ import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ParticaoInvalidaEx
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.SaldoInsuficienteException;
 import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ValorInvalidoException;
 import br.pucminas.labdamd.iceibank.agencia.config.AgenciaProperties;
+import br.pucminas.labdamd.iceibank.agencia.common.exceptions.ConflitoSincronizacaoException;
+import br.pucminas.labdamd.iceibank.agencia.conta.dto.SincronizarRequest;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.ContaResponse;
 import br.pucminas.labdamd.iceibank.agencia.conta.dto.CriarContaRequest;
 import br.pucminas.labdamd.iceibank.agencia.eventlog.EventLogService;
@@ -58,6 +60,77 @@ class ContaServiceTest {
     void limpar() throws IOException {
         eventLog.fechar();
         Files.deleteIfExists(arquivoDeTeste);
+    }
+
+    // --- Sprint 3: sincronizacao offline-first (vetor conhecido x vetor atual) ---
+
+    @Test
+    void sincronizacaoComVetorIgualAplicaAOperacao() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        var conta = contaService.consultarSaldoComVetor(0L);
+
+        var resultado = contaService.sincronizarOperacaoPendente(0L,
+                new SincronizarRequest("DEPOSITO", 50L, conta.vetorAtual()));
+
+        assertEquals(150, resultado.saldo());
+        assertNotEquals(conta.vetorAtual(), resultado.vetorAtual()); // aplicar a operacao e um evento: o vetor avancou
+    }
+
+    @Test
+    void sincronizacaoComVetorAntigoDa409ENaoAplica() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        var antigo = contaService.consultarSaldoComVetor(0L).vetorAtual();
+        contaService.depositar(0L, 10L); // mudanca "enquanto o app estava offline"
+
+        ConflitoSincronizacaoException conflito = assertThrows(ConflitoSincronizacaoException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("SAQUE", 30L, antigo)));
+
+        assertEquals(antigo, conflito.vetorConhecido());
+        assertEquals(110, conflito.contaAtual().saldo()); // devolve o estado real
+        assertEquals(110, contaService.consultarSaldo(0L).saldo()); // e o saque NAO foi aplicado
+    }
+
+    @Test
+    void depoisDoConflitoSincronizarComOVetorAtualFunciona() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 100L));
+        var antigo = contaService.consultarSaldoComVetor(0L).vetorAtual();
+        contaService.depositar(0L, 10L);
+
+        var conflito = assertThrows(ConflitoSincronizacaoException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("SAQUE", 30L, antigo)));
+        var resultado = contaService.sincronizarOperacaoPendente(0L,
+                new SincronizarRequest("SAQUE", 30L, conflito.vetorAtual()));
+
+        assertEquals(80, resultado.saldo());
+    }
+
+    @Test
+    void sincronizacaoDeSaqueSemSaldoNaoConsomeTickDoRelogio() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 10L));
+        var vetor = contaService.consultarSaldoComVetor(0L).vetorAtual();
+
+        assertThrows(SaldoInsuficienteException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("SAQUE", 99L, vetor)));
+        assertEquals(vetor, contaService.consultarSaldoComVetor(0L).vetorAtual());
+    }
+
+    @Test
+    void sincronizacaoRejeitaVetorAusenteOuDeTamanhoErradoETipoDesconhecido() {
+        contaService.criarConta(new CriarContaRequest(0L, "Ana", 10L));
+        var vetor = contaService.consultarSaldoComVetor(0L).vetorAtual();
+
+        assertThrows(DadosInvalidosException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("DEPOSITO", 5L, null)));
+        assertThrows(DadosInvalidosException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("DEPOSITO", 5L, java.util.List.of(1L))));
+        assertThrows(DadosInvalidosException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("PIX", 5L, vetor)));
+    }
+
+    @Test
+    void sincronizacaoDeContaInexistenteDa404() {
+        assertThrows(ContaNaoEncontradaException.class,
+                () -> contaService.sincronizarOperacaoPendente(0L, new SincronizarRequest("DEPOSITO", 5L, java.util.List.of(0L, 0L, 0L))));
     }
 
     @Test
