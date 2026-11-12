@@ -1,0 +1,56 @@
+PS C:\ICEIBank> Get-Date
+Thursday, 12 de November de 2026 15:47:50
+== 1. JWT (regressao do Sprint 1) ==
+PS C:\ICEIBank> GET /contas/0 sem token
+HTTP 401
+PS C:\ICEIBank> GET /contas/0 com token invalido
+HTTP 401
+PS C:\ICEIBank> POST /auth/login (gustavo)
+token recebido: eyJhbGciOiJIUzUxMiJ9.eyJ...
+PS C:\ICEIBank> POST /auth/login com senha errada
+HTTP 401
+
+== 2. Contas (particao id % 3) ==
+PS C:\ICEIBank> POST :4047/contas {id:0}
+{"id":0,"titular":"Gustavo","saldo":100}
+PS C:\ICEIBank> POST :4048/contas {id:1}
+{"id":1,"titular":"Aluno","saldo":50}
+PS C:\ICEIBank> POST :4047/contas {id:3}
+{"id":3,"titular":"Ana","saldo":0}
+PS C:\ICEIBank> POST :4047/contas {id:1}  # conta que NAO e desta agencia
+{"erro":"Conta 1 nao pertence a esta agencia (pertence a agencia 1)."} [HTTP 400]
+
+== 3. Transferencia LOCAL (0 -> 3, mesma agencia) ==
+PS C:\ICEIBank> POST /transferencias {0 -> 3, 20}
+{"mensagem":"Transferencia concluida (mesma agencia).","repetida":false}
+PS C:\ICEIBank> GET :4047/contas/3
+{"id":3,"titular":"Ana","saldo":20,"vetorAtual":[12,4,3]}
+
+== 4. Transferencia ENTRE AGENCIAS via RabbitMQ (0 -> 1, 30) ==
+PS C:\ICEIBank> POST :4047/transferencias {0 -> 1, 30, idOperacao: reg-1}
+{"mensagem":"Transferencia publicada para a agencia de destino (entrega assincrona).","repetida":false}
+PS C:\ICEIBank> GET :4047/contas/0   # debitou na origem
+{"id":0,"titular":"Gustavo","saldo":50,"vetorAtual":[14,4,3]}
+PS C:\ICEIBank> GET :4048/contas/1   # creditou no destino, de forma assincrona
+{"id":1,"titular":"Aluno","saldo":80,"vetorAtual":[14,8,4]}
+
+== 5. Idempotencia: mesmo idOperacao de novo ==
+PS C:\ICEIBank> POST :4047/transferencias {0 -> 1, 30, idOperacao: reg-1}
+{"mensagem":"Transferencia publicada para a agencia de destino (entrega assincrona).","repetida":true}
+PS C:\ICEIBank> GET :4048/contas/1   # saldo NAO mudou
+{"id":1,"titular":"Aluno","saldo":80,"vetorAtual":[14,8,4]}
+
+== 6. RabbitMQ real: exchange e filas ==
+PS C:\ICEIBank> GET http://localhost:15672/api/queues  (guest)
+fila-agencia-0           consumidores=1 prontas=0 entregues=0 publicadas=0
+fila-agencia-1           consumidores=1 prontas=0 entregues=1 publicadas=1
+fila-agencia-2           consumidores=1 prontas=0 entregues=0 publicadas=0
+fila-creditos-mortos     consumidores=0 prontas=0 entregues=0 publicadas=0
+
+== 7. Bully convivendo com a mensageria ==
+PS C:\ICEIBank> GET :4047/bully/lider
+{"liderAtual":2,"idAgencia":0}
+PS C:\ICEIBank> GET :4048/bully/lider
+{"liderAtual":2,"idAgencia":1}
+PS C:\ICEIBank> GET :4049/bully/lider
+{"liderAtual":2,"idAgencia":2}

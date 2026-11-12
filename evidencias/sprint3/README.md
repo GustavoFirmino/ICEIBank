@@ -12,5 +12,7 @@
 | `app-offline.png` | modo avião: depósito vira operação "pendente", saldo provisório | idem (offline emulado no Chrome) |
 | `app-sincronizacao.png` | rede de volta: o app sincroniza sozinho ("1 operação sincronizada") | idem |
 | `app-conflito.png` | 409 tratado de forma visível: "Conflito… Saldo real agora…" com as opções | idem |
+| `regressao-mensageria.png` (+ `.txt`) | regressão Sprints 1–2 com **RabbitMQ real**: JWT, contas, transferência local e entre agências, idempotência, filas | `regressao.sh` contra as 3 agências + RabbitMQ 4.4 (sem Docker) |
+| `regressao-frontend-saldo.png` / `regressao-frontend-transferencia.png` | frontend web do Sprint 1 funcionando (login, saldo, transferência entre agências) | Chrome automatizado contra as agências |
 
 Os prints do app foram feitos com o app **compilado para web** (sem Android SDK nesta máquina); ver a seção "Como os prints do app foram gerados" em [`../../RESPOSTAS.md`](../../RESPOSTAS.md).
