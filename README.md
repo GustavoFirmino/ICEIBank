@@ -20,7 +20,7 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 - **`historico-lideranca.ps1`:** reconstrói a linha do tempo de lideranças a partir dos logs das 3 agências.
 - **Sincronização offline-first no backend:** `GET /contas/{id}` devolve também o `vetorAtual`; `POST /contas/{id}/sincronizar` aplica uma operação feita offline só se o vetor da agência ainda for o que o app conhecia — senão responde **409** com o estado atual.
 - **App Flutter (`app_mobile/`):** fluxo bancário completo, **painel da líder** atualizado sozinho (inclusive no failover) e modo **offline-first** (Hive, fila de pendentes, UI otimista, sincronização automática, conflito tratado de forma visível). Ver [`app_mobile/README.md`](app_mobile/README.md).
-- **Ainda em aberto (de propósito):** a líder é só informativa (coordenará o 2PC no Sprint 4); transferência não funciona offline; o app não foi executado em emulador Android nesta máquina (os prints foram feitos com o app em web — ver `RESPOSTAS.md`).
+- **Ainda em aberto (de propósito):** a líder é só informativa (coordenará o 2PC no Sprint 4); transferência não funciona offline; o app foi testado em emulador Android e no Chrome, mas não em celular físico (os prints `app-*.png` são do emulador — ver `RESPOSTAS.md`).
 
 ### Como demonstrar o Sprint 3
 

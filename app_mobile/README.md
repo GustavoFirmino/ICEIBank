@@ -55,7 +55,8 @@ Login de demonstração (definido em `application.yml` das agências): `gustavo`
 
 ## Limitações conhecidas
 
-- Testado em Chrome (web) e em testes automatizados; **não** executado em emulador/dispositivo Android nesta máquina (sem Android SDK).
+- Testado em **emulador Android** (Pixel 6, Android 35, APK debug), em Chrome (web) e em testes automatizados (13). Não testado em celular físico nem em iOS.
+- O primeiro `flutter build apk` baixa Build-Tools/Platform/CMake e leva vários minutos; com pouca RAM livre o Gradle pode parecer travado — por isso `android/gradle.properties` limita o heap a 2 GB (`-Xmx2G`) em vez dos 8 GB do template.
 - O polling da líder não pausa em segundo plano.
 - Offline só para depósito e saque (o endpoint de sincronização do backend não cobre transferência).
 - O vetor é por agência, não por conta: qualquer evento na agência pode gerar um 409 (mitigado pela repetição automática quando o saldo não mudou).
