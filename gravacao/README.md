@@ -16,7 +16,6 @@ node gravacao\montar-sprint2.js     # videos\ICEIBank-sprint2.mp4
 node gravacao\sprint3a.js           # Bully, failover, historico, sincronizacao 409
 node gravacao\sprint3b.js           # app no emulador (--partes=1,2,3)
 node gravacao\montar-sprint3.js     # videos\ICEIBank-sprint3.mp4
-node gravacao\roteiro-tempos.js     # tabela de tempos das legendas (videos\_tempos.md)
 ```
 
 ## Arquivos
