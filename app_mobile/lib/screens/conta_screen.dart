@@ -126,6 +126,16 @@ class _ContaScreenState extends State<ContaScreen> {
                   decoration: const InputDecoration(labelText: 'Valor (R\$)', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 8),
+                // Valores rapidos: um toque preenche o campo (util em telas sem teclado, ex.: demonstracao no emulador)
+                Wrap(spacing: 8, children: [
+                  for (final v in const [10, 40, 100])
+                    ActionChip(
+                      key: Key('valor-rapido-$v'),
+                      label: Text('R\$ $v'),
+                      onPressed: () => setState(() => _valor.text = '$v'),
+                    ),
+                ]),
+                const SizedBox(height: 8),
                 Row(children: [
                   Expanded(child: FilledButton(key: const Key('btn-depositar'), onPressed: _ocupado ? null : () => _operar(TipoOperacao.deposito), child: const Text('Depositar'))),
                   const SizedBox(width: 8),

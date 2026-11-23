@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>ICEIBank - gravacao</title>
+<style>
+  :root { --fundo:#0b0f14; --painel:#111827; --linha:#1f2937; --txt:#d6deeb; --azul:#60a5fa; --verde:#34d399; --verm:#f87171; --amar:#fbbf24; --cian:#22d3ee; --roxo:#c4b5fd; --cinza:#94a3b8; }
+  html, body { margin:0; width:1920px; height:1080px; background:var(--fundo); color:var(--txt); overflow:hidden;
+               font-family:'Cascadia Mono', Consolas, 'Courier New', monospace; }
+  #topo { height:68px; display:flex; align-items:center; gap:22px; padding:0 30px; background:var(--painel); border-bottom:2px solid var(--linha);
+          font-family:'Segoe UI', Arial, sans-serif; font-size:28px; }
+  #topo .marca { font-weight:700; color:var(--azul); }
+  #topo .sep { color:var(--cinza); }
+  #titulo { color:#e5e7eb; }
+  #grade { display:grid; grid-template-columns:1060px 1fr; height:896px; }   /* 68 topo + 896 + 116 livres p/ legenda */
+  #term { padding:18px 26px; font-size:23px; line-height:1.4; overflow:hidden; border-right:2px solid var(--linha); white-space:pre-wrap; word-break:break-word; }
+  #term .l { min-height:1.4em; }
+  #term .p { color:var(--verde); }
+  #term .c { color:#f8fafc; font-weight:600; }
+  #term .v { color:var(--verm); }
+  #term .a { color:var(--amar); font-weight:600; }
+  #term .m { color:var(--cinza); }
+  #term .ok { color:var(--verde); }
+  #lateral { display:flex; flex-direction:column; min-width:0; }
+  .painel { flex:1; min-height:0; display:flex; flex-direction:column; border-bottom:2px solid var(--linha); }
+  .painel h3 { margin:0; padding:7px 16px; background:#161e2b; font:600 20px 'Segoe UI', Arial, sans-serif; color:#93c5fd; display:flex; justify-content:space-between; }
+  .painel h3 span { color:var(--cinza); font-weight:400; font-size:17px; }
+  .corpo { flex:1; overflow:hidden; padding:8px 14px; font-size:15.5px; line-height:1.32; display:flex; flex-direction:column; justify-content:flex-end; }
+  .corpo .e { white-space:pre-wrap; word-break:break-all; }
+  .e .h { color:var(--cinza); }
+  .e .tipo { font-weight:700; }
+  .t-lider { color:var(--verde); } .t-falha { color:var(--verm); } .t-msg { color:var(--cian); } .t-conta { color:var(--roxo); } .t-eleicao { color:var(--amar); } .t-outro { color:var(--txt); }
+  table.mq { border-collapse:collapse; width:100%; font-size:16.5px; }
+  table.mq th { text-align:right; color:var(--cinza); font-weight:600; padding:3px 8px; border-bottom:1px solid var(--linha); }
+  table.mq th:first-child, table.mq td:first-child { text-align:left; }
+  table.mq td { text-align:right; padding:3px 8px; }
+  td.hi { color:var(--amar); font-weight:700; } td.bad { color:var(--verm); font-weight:700; }
+</style>
+</head>
+<body>
+<div id="topo"><span class="marca">ICEIBank</span><span class="sep">|</span><span id="titulo"></span></div>
+<div id="grade">
+  <div id="term"></div>
+  <div id="lateral"></div>
+</div>
+<script>
+// modo=logs: so os paineis (sem terminal), para compor ao lado do video do emulador (largura vem de ?largura=)
+if (location.search.includes('modo=logs')) {
+  const w = (/largura=(\d+)/.exec(location.search) || [0, 1434])[1];
+  document.documentElement.style.width = w + 'px'; document.body.style.width = w + 'px';
+  document.getElementById('term').style.display = 'none';
+  document.getElementById('grade').style.gridTemplateColumns = '1fr';
+}
+const term = document.getElementById('term');
+const lateral = document.getElementById('lateral');
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const rolar = () => { term.scrollTop = term.scrollHeight; };
+const dorme = (ms) => new Promise((r) => setTimeout(r, ms));
+
+window.T = {
+  titulo(t) { document.getElementById('titulo').textContent = t; },
+  limpar() { term.innerHTML = ''; },
+  // digita um comando com prompt (efeito de digitacao)
+  async cmd(txt, atraso = 22) {
+    const l = document.createElement('div'); l.className = 'l';
+    l.innerHTML = '<span class="p">PS ICEIBank&gt; </span><span class="c"></span>';
+    term.appendChild(l); const c = l.querySelector('.c');
+    for (const ch of txt) { c.textContent += ch; if (ch !== ' ') await dorme(atraso); }
+    rolar();
+  },
+  // acrescenta texto de saida (uma linha por chamada)
+  out(txt, cls) {
+    const l = document.createElement('div'); l.className = 'l ' + (cls || '');
+    if (!cls) {
+      if (/^\s*==/.test(txt)) l.className = 'l a';
+      else if (/(erro|ERROR|Exception|falhou|FALHOU|Conflito|recusad)/i.test(txt) && !/ok/.test(txt)) l.className = 'l v';
+      else if (/^(#|\/\/)/.test(txt)) l.className = 'l m';
+    }
+    l.textContent = txt; term.appendChild(l);
+    while (term.childElementCount > 80) term.removeChild(term.firstChild);
+    rolar();
+  },
+  nota(txt) { this.out(txt, 'm'); },
+};
+
+window.P = {
+  // lista: [{id, titulo, sub}]
+  config(lista) {
+    lateral.innerHTML = '';
+    for (const p of lista) {
+      const d = document.createElement('div'); d.className = 'painel'; d.id = 'p-' + p.id;
+      d.innerHTML = `<h3>${esc(p.titulo)}<span>${esc(p.sub || '')}</span></h3><div class="corpo"></div>`;
+      lateral.appendChild(d);
+    }
+  },
+  sub(id, txt) { document.querySelector('#p-' + id + ' h3 span').textContent = txt; },
+  add(id, hora, tipo, resto, cls) {
+    const corpo = document.querySelector('#p-' + id + ' .corpo'); if (!corpo) return;
+    const e = document.createElement('div'); e.className = 'e';
+    e.innerHTML = `<span class="h">${esc(hora)} </span><span class="tipo ${cls}">${esc(tipo)}</span> ${esc(resto)}`;
+    corpo.appendChild(e);
+    while (corpo.childElementCount > 14) corpo.removeChild(corpo.firstChild);
+  },
+  html(id, h) { document.querySelector('#p-' + id + ' .corpo').innerHTML = h; },
+};
+</script>
+</body>
+</html>

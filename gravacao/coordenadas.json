@@ -1,0 +1,12 @@
+{
+  "_obs": "pixels reais da tela 1080x2400 do emulador iceibank_pixel; calibrado com screenshots do app (com a linha de historico de liderancas visivel nas telas da conta)",
+  "login": { "usuario": [540, 1368] },
+  "home": { "conta": [420, 724] },
+  "conta": {
+    "chip10": [134, 1354],
+    "chip40": [340, 1354],
+    "depositar": [285, 1501],
+    "sacar": [793, 1501],
+    "aplicar": [327, 1438]
+  }
+}

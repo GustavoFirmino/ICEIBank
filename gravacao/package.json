@@ -1,0 +1,9 @@
+{
+  "name": "iceibank-gravacao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ferramentas para gravar os videos de apresentacao dos Sprints 2 e 3 (ICEIBank)",
+  "dependencies": {
+    "puppeteer-core": "^25.16.0"
+  }
+}

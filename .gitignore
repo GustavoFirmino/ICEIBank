@@ -17,3 +17,8 @@ desktop.ini
 # Sprint 3: logs das agencias gerados pelo demo-sprint3.ps1 e copias dos logs antigos
 evidencias/sprint3/logs-agencias/
 agencia/data/backup-*/
+
+# Videos: so os finais vao para o repositorio; cenas, quadros e temporarios ficam fora
+videos/*
+!videos/ICEIBank-sprint2.mp4
+!videos/ICEIBank-sprint3.mp4
