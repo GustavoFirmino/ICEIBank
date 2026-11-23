@@ -13,6 +13,42 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 | **3 (este)** | U4 - Desenvolvimento Móvel | App Flutter | Consenso (eleição de líder — Bully) |
 | 4 | U5 - Computação em Nuvem | Containers | Transações distribuídas (2PC/Saga) |
 
+## Por onde começar
+
+| Quero… | Vá para |
+|---|---|
+| Apresentar o trabalho | [`ROTEIRO-APRESENTACAO.md`](ROTEIRO-APRESENTACAO.md) e [`videos/`](videos) |
+| Rodar tudo do zero | [Passo a passo completo](#passo-a-passo-completo-do-zero-até-o-frontend-aberto) |
+| Ver as respostas dos roteiros | [`RESPOSTAS.md`](RESPOSTAS.md) |
+| Ver os prints de execução | [`evidencias/`](evidencias) (sprint1, sprint2, sprint3) |
+| Usar o app mobile | [`app_mobile/README.md`](app_mobile/README.md) |
+| Regravar os vídeos | [`gravacao/README.md`](gravacao/README.md) |
+
+## Estrutura
+
+```
+ICEIBank/
+├── agencia/               Serviço Spring Boot (Java 17) — inclui o Maven Wrapper (mvnw.cmd)
+├── frontend/              Interface web (React + Vite)
+├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro do Sprint 1
+├── app_mobile/            App Flutter (Sprint 3): fluxo bancário, painel da líder, offline-first
+├── evidencias/sprint2/    Prints de execução exigidos pelo roteiro do Sprint 2
+├── evidencias/sprint3/    Prints do Sprint 3 (backend e app) — ver o README da pasta
+├── iniciar-rabbitmq.ps1   Sobe o RabbitMQ local (Docker) — Sprint 2
+├── iniciar-rabbitmq-sem-docker.ps1  Alternativa sem Docker (Erlang/RabbitMQ portáteis)
+├── iniciar-agencias.ps1   Sobe as 3 agências em 3 janelas do PowerShell
+├── linha-do-tempo.ps1     Roda o MesclarLogs (linha do tempo causal) direto do .jar
+├── historico-lideranca.ps1  Linha do tempo de lideranças (Bully) — Sprint 3
+├── demo-sprint3.ps1       Cenários reais do Sprint 3 + geração dos prints do backend
+├── demo-auth.ps1          Mostra os 3 cenários de JWT (sem token / válido / expirado)
+├── gravacao/              Ferramentas (Node + ffmpeg) que gravaram os vídeos dos Sprints 2 e 3
+├── videos/                Vídeos finais legendados dos Sprints 2 e 3 (o do Sprint 1 está na release)
+├── ROTEIRO-APRESENTACAO.md  Roteiro para apresentar (vídeos com tempos + demo ao vivo)
+├── RESPOSTAS.md           Respostas às perguntas de reflexão dos roteiros (Sprints 1, 2 e 3)
+├── FLUXO-DE-EXECUCAO.md   Atividade de recapitulação (mensageria, Pub/Sub e relógio vetorial)
+└── README.md
+```
+
 ## Sprint 3 — escopo (este sprint)
 
 - **Algoritmo de Bully** nas 3 agências: mensagens de eleição e de coordenador (`POST /bully/eleicao`, `POST /bully/coordenador`, `GET /bully/lider`, rotas públicas). A agência ativa de maior ID é sempre a líder; a eleição roda em outra thread para a resposta HTTP não estourar o timeout de quem perguntou.
@@ -56,26 +92,6 @@ No Sprint 1, a transferência entre agências era uma **chamada REST direta**: s
 - Frontend web (React + Vite) consumindo a API autenticada.
 - Funcionalidades adicionais: **idempotência de transferências** e **histórico de transações por conta**.
 
-## Estrutura
-
-```
-ICEIBank/
-├── agencia/               Serviço Spring Boot (Java 17) — inclui o Maven Wrapper (mvnw.cmd)
-├── frontend/              Interface web (React + Vite)
-├── evidencias/sprint1/    Prints de execução exigidos pelo roteiro do Sprint 1
-├── app_mobile/            App Flutter (Sprint 3): fluxo bancário, painel da líder, offline-first
-├── evidencias/sprint2/    Prints de execução exigidos pelo roteiro do Sprint 2
-├── evidencias/sprint3/    Prints do Sprint 3 (backend e app) — ver o README da pasta
-├── iniciar-rabbitmq.ps1   Sobe o RabbitMQ local (Docker) — Sprint 2
-├── iniciar-agencias.ps1   Sobe as 3 agências em 3 janelas do PowerShell
-├── linha-do-tempo.ps1     Roda o MesclarLogs (linha do tempo causal) direto do .jar
-├── historico-lideranca.ps1  Linha do tempo de lideranças (Bully) — Sprint 3
-├── demo-sprint3.ps1       Cenários reais do Sprint 3 + geração dos prints do backend
-├── demo-auth.ps1          Mostra os 3 cenários de JWT (sem token / válido / expirado)
-├── RESPOSTAS.md           Respostas às perguntas de reflexão dos roteiros (Sprints 1, 2 e 3)
-├── FLUXO-DE-EXECUCAO.md   Atividade de recapitulação (mensageria, Pub/Sub e relógio vetorial)
-└── README.md
-```
 
 ## Portas (porta-base 4000 + OFFSET 47)
 
@@ -355,7 +371,10 @@ Abra `http://localhost:5173`, escolha a agência de entrada e faça login com `g
 | Crédito "não chegou" na agência de destino | A agência de destino reiniciou e perdeu a conta (memória) — a mensagem está na dead-letter queue | `GET /mensagens-mortas`; recriar a conta; `POST /mensagens-mortas/reprocessar` |
 | Contas "sumiram" depois de reiniciar uma agência | Estado é em memória, por decisão dos roteiros (ainda não há banco) | Esperado — recriar as contas via API/frontend |
 
-## Vídeo de apresentação
+## Vídeos de apresentação
+
+- **Sprint 2** e **Sprint 3** (legendados, sem áudio): [`videos/ICEIBank-sprint2.mp4`](videos/ICEIBank-sprint2.mp4) e [`videos/ICEIBank-sprint3.mp4`](videos/ICEIBank-sprint3.mp4). Tempos e falas em [`ROTEIRO-APRESENTACAO.md`](ROTEIRO-APRESENTACAO.md).
+- **Sprint 1:**
 
 Funcionalidades e principais decisões do projeto (≈10 min), gravado em 07/09/2026: **[assistir / baixar](https://github.com/GustavoFirmino/ICEIBank/releases/download/v1.0-sprint1/iceibank-sprint1-apresentacao.mp4)** — publicado como asset da release [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1) (o arquivo passa do limite de 100 MB do Git, por isso não está dentro do repositório).
 
