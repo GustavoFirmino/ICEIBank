@@ -17,7 +17,7 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 
 | Quero… | Vá para |
 |---|---|
-| Apresentar o trabalho | [`ROTEIRO-APRESENTACAO.md`](ROTEIRO-APRESENTACAO.md) e [`videos/`](videos) |
+| Ver os vídeos | [`videos/`](videos) |
 | Rodar tudo do zero | [Passo a passo completo](#passo-a-passo-completo-do-zero-até-o-frontend-aberto) |
 | Ver as respostas dos roteiros | [`RESPOSTAS.md`](RESPOSTAS.md) |
 | Ver os prints de execução | [`evidencias/`](evidencias) (sprint1, sprint2, sprint3) |
@@ -43,7 +43,6 @@ ICEIBank/
 ├── demo-auth.ps1          Mostra os 3 cenários de JWT (sem token / válido / expirado)
 ├── gravacao/              Ferramentas (Node + ffmpeg) que gravaram os vídeos dos Sprints 2 e 3
 ├── videos/                Vídeos finais legendados dos Sprints 2 e 3 (o do Sprint 1 está na release)
-├── ROTEIRO-APRESENTACAO.md  Roteiro para apresentar (vídeos com tempos + demo ao vivo)
 ├── RESPOSTAS.md           Respostas às perguntas de reflexão dos roteiros (Sprints 1, 2 e 3)
 ├── FLUXO-DE-EXECUCAO.md   Atividade de recapitulação (mensageria, Pub/Sub e relógio vetorial)
 └── README.md
@@ -373,7 +372,7 @@ Abra `http://localhost:5173`, escolha a agência de entrada e faça login com `g
 
 ## Vídeos de apresentação
 
-- **Sprint 2** e **Sprint 3** (legendados, sem áudio): [`videos/ICEIBank-sprint2.mp4`](videos/ICEIBank-sprint2.mp4) e [`videos/ICEIBank-sprint3.mp4`](videos/ICEIBank-sprint3.mp4). Tempos e falas em [`ROTEIRO-APRESENTACAO.md`](ROTEIRO-APRESENTACAO.md).
+- **Sprint 2** e **Sprint 3** (legendados, sem áudio): [`videos/ICEIBank-sprint2.mp4`](videos/ICEIBank-sprint2.mp4) e [`videos/ICEIBank-sprint3.mp4`](videos/ICEIBank-sprint3.mp4).
 - **Sprint 1:**
 
 Funcionalidades e principais decisões do projeto (≈10 min), gravado em 07/09/2026: **[assistir / baixar](https://github.com/GustavoFirmino/ICEIBank/releases/download/v1.0-sprint1/iceibank-sprint1-apresentacao.mp4)** — publicado como asset da release [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1) (o arquivo passa do limite de 100 MB do Git, por isso não está dentro do repositório).
