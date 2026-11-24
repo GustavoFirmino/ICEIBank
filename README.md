@@ -24,6 +24,16 @@ Banco simplificado dividido em agências, desenvolvido ao longo de 4 sprints par
 | Usar o app mobile | [`app_mobile/README.md`](app_mobile/README.md) |
 | Regravar os vídeos | [`gravacao/README.md`](gravacao/README.md) |
 
+## Código por sprint
+
+Cada entrega está preservada em uma branch (e em uma tag/release), para ver o código exatamente como foi entregue:
+
+| Sprint | Branch | Tag / release |
+|---|---|---|
+| 1 | [`sprint-1`](https://github.com/GustavoFirmino/ICEIBank/tree/sprint-1) | [`v1.0-sprint1`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v1.0-sprint1) |
+| 2 | [`sprint-2`](https://github.com/GustavoFirmino/ICEIBank/tree/sprint-2) | [`v2.0-sprint2`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v2.0-sprint2) |
+| 3 | [`sprint-3`](https://github.com/GustavoFirmino/ICEIBank/tree/sprint-3) | [`v3.0-sprint3`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v3.0-sprint3) |
+
 ## Estrutura
 
 ```
