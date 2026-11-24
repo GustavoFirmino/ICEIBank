@@ -34,6 +34,8 @@ Cada entrega está preservada em uma branch (e em uma tag/release), para ver o c
 | 2 | [`sprint-2`](https://github.com/GustavoFirmino/ICEIBank/tree/sprint-2) | [`v2.0-sprint2`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v2.0-sprint2) |
 | 3 | [`sprint-3`](https://github.com/GustavoFirmino/ICEIBank/tree/sprint-3) | [`v3.0-sprint3`](https://github.com/GustavoFirmino/ICEIBank/releases/tag/v3.0-sprint3) |
 
+As pastas [`sprints/`](sprints) trazem cópias de consulta dos trechos principais de cada entrega, agrupadas por tema (autenticação, RabbitMQ, Bully, offline-first...).
+
 ## Estrutura
 
 ```
